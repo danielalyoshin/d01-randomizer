@@ -1,0 +1,117 @@
+import { test, expect } from '@playwright/test';
+
+test('exclusions persist and each round picks only one of the remaining groups', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('[data-exclude]')).toHaveCount(8);
+  await page.getByRole('checkbox', { name: 'Group 01 already presented' }).check();
+  await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'Group 01 already presented' })).toBeChecked();
+  await expect(page.locator('#ready-count')).toHaveText('7');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Group 02 already presented' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Reveal catch' }).click();
+  await expect(page.locator('#results-dialog')).toBeVisible();
+  await expect(page.locator('.catch-row')).toHaveCount(7);
+  await expect(page.locator('.winning-catch')).toHaveCount(1);
+  await expect(page.locator('.catch-group')).not.toContainText(['Group 01']);
+  const winner = await page.locator('.result-heading h2').textContent();
+  const lengths = await page.locator('.fish-length').allTextContents();
+  const winnerLength = await page.locator('.winning-catch .fish-length').textContent();
+  expect(parseFloat(winnerLength)).toBe(Math.min(...lengths.map(parseFloat)));
+  const names = await page.locator('.catch-group > span:nth-child(2)').allTextContents();
+  expect(names).toEqual(['Group 02', 'Group 03', 'Group 04', 'Group 05', 'Group 06', 'Group 07', 'Group 08']);
+  await page.getByRole('button', { name: 'Mark presented & return' }).click();
+  await expect(page.getByRole('checkbox', { name: `${winner} already presented` })).toBeChecked();
+  await expect(page.locator('#ready-count')).toHaveText('6');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await page.getByRole('button', { name: 'Reveal catch' }).click();
+  await expect(page.locator('.catch-row')).toHaveCount(6);
+  const nextNames = await page.locator('.catch-group > span:nth-child(2)').allTextContents();
+  expect(nextNames).not.toContain(winner);
+  expect(nextNames).not.toContain('Group 01');
+});
+
+test('a full expedition catches every fish, follows hooks down, and resumes after pause', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect.poll(async () => parseFloat(await page.locator('#depth').textContent())).toBeGreaterThan(2);
+  await page.getByRole('button', { name: 'Pause fishing' }).click();
+  const pausedDepth = await page.locator('#depth').textContent();
+  await page.waitForTimeout(400);
+  await expect(page.locator('#depth')).toHaveText(pausedDepth);
+  await page.getByRole('button', { name: 'Resume fishing' }).click();
+  await expect(page.locator('#results-dialog')).toBeVisible({ timeout: 35000 });
+  await expect(page.locator('.catch-row')).toHaveCount(8);
+  expect(errors).toEqual([]);
+});
+
+test('one remaining boat can catch a fish; all presented disables casting; resetting restores everyone', async ({ page }) => {
+  await page.goto('/');
+  for (let i = 1; i <= 7; i++) await page.getByRole('checkbox', { name: `Group 0${i} already presented` }).check();
+  await expect(page.locator('#ready-count')).toHaveText('1');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('#results-dialog')).toBeVisible({ timeout: 14000 });
+  await expect(page.locator('.result-heading h2')).toHaveText('Group 08');
+  await expect(page.locator('.catch-row')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Mark presented & return' }).click();
+  await expect(page.getByRole('button', { name: 'Cast the lines' })).toBeDisabled();
+  await page.locator('#options-toggle').click();
+  await page.getByRole('button', { name: 'Reset crew', exact: true }).click();
+  await expect(page.locator('#ready-count')).toHaveText('8');
+  await expect(page.getByRole('button', { name: 'Cast the lines' })).toBeEnabled();
+});
+
+test('group editing, limits, reduced motion, and saved results work without HTML injection', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await expect(page.locator('#crew-list')).toBeHidden();
+  await page.locator('#options-toggle').click();
+  await expect(page.locator('#crew-list')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#crew-list')).toBeHidden();
+  await expect(page.locator('#options-toggle')).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.locator('#crew-list')).toBeVisible();
+  await expect(page.locator('#results-dialog')).toBeHidden();
+  const name = '<b>Fish & Chips</b>';
+  await page.getByRole('textbox', { name: 'Name for boat 1', exact: true }).fill(name);
+  await page.getByRole('textbox', { name: 'Name for boat 2', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Name for boat 2', exact: true })).toBeFocused();
+  await expect(page.locator('.boat-name').first()).toHaveText(name);
+  await expect(page.locator('.boat-name b')).toHaveCount(0);
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a group' }).click();
+  await expect(page.getByRole('button', { name: 'Add a group' })).toBeDisabled();
+  await expect(page.locator('[data-exclude]')).toHaveCount(12);
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('#crew-list')).toBeHidden();
+  await expect(page.locator('#results-dialog')).toBeVisible();
+  await expect(page.locator('.catch-row')).toHaveCount(12);
+  await page.getByRole('button', { name: 'Back to the boats', exact: true }).last().click();
+  await page.reload();
+  await page.locator('#options-toggle').click();
+  await page.getByRole('button', { name: 'View last catch' }).click();
+  await expect(page.locator('.catch-row')).toHaveCount(12);
+  await page.keyboard.press('Escape');
+  for (let i = 0; i < 10; i++) await page.locator('[data-remove]').last().click();
+  await expect(page.locator('[data-exclude]')).toHaveCount(2);
+  await expect(page.locator('[data-remove]').first()).toBeDisabled();
+});
+
+test('mobile keeps the page within the viewport and every boat checkbox is reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await expect(page.getByRole('button', { name: 'Cast the lines' })).toBeInViewport();
+  await page.locator('#options-toggle').click();
+  await expect(page.getByRole('textbox', { name: 'Name for boat 1', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.locator('#options-toggle').click();
+  await page.getByRole('checkbox', { name: 'Group 08 already presented' }).check();
+  await expect(page.getByRole('checkbox', { name: 'Group 08 already presented' })).toBeChecked();
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await page.getByRole('button', { name: 'Reveal catch' }).click();
+  await expect(page.locator('.catch-row')).toHaveCount(7);
+  expect(await page.locator('#results-dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
+});

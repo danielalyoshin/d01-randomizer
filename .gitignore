@@ -1,0 +1,22 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Test output
+test-results/
+playwright-report/
+blob-report/
+
+# Logs
+npm-debug.log*
+
+# Impeccable local state (design.json is the shared design system and stays tracked)
+.impeccable/hook.cache.json
+.impeccable/hook.pending.json
+.impeccable/config.local.json
+.impeccable/questions/
+
+# OS and editors
+.DS_Store
+.vscode/
+.idea/
