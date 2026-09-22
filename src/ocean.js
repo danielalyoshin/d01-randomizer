@@ -1,5 +1,5 @@
 import { STEP, hookPosition, swimmerPosition } from './fishing.js';
-import { fishStyle } from './icons.js';
+import { fishStyle, drawFish } from './fish-art.js';
 
 const TAU = Math.PI * 2;
 const SURFACE = 206;
@@ -509,52 +509,8 @@ export class Ocean {
     c.beginPath(); c.ellipse(x, y - 11, 3, 4.6, 0, 0, TAU); c.fill();
   }
 
-  // Fish are printed in two inks; markings stand in for color. Hooked fish take a red edge.
   drawFish(x, y, size, style, direction, phase, hooked = false) {
-    const c = this.ctx, s = size;
-    const dark = style === 0 || style === 2;
-    const edge = hooked ? RED : INK;
-    c.save(); c.translate(x, y); c.scale(direction, 1);
-    const tail = Math.sin(phase * 5) * 0.07;
-    c.fillStyle = INK; c.strokeStyle = edge; c.lineWidth = Math.max(1.4, s * 0.08);
-    c.beginPath(); c.moveTo(-s * 0.44, 0);
-    c.quadraticCurveTo(-s * 0.74, -s * 0.12, -s * 0.96, -s * (0.31 + tail));
-    c.lineTo(-s * 0.82, 0);
-    c.lineTo(-s * 0.96, s * (0.31 - tail));
-    c.quadraticCurveTo(-s * 0.7, s * 0.1, -s * 0.44, 0); c.fill(); if (hooked) c.stroke();
-    c.beginPath(); c.moveTo(-s * 0.26, -s * 0.23); c.quadraticCurveTo(-s * 0.19, -s * 0.44, s * 0.06, -s * 0.46); c.lineTo(s * 0.19, -s * 0.25); c.closePath(); c.fill();
-    c.beginPath(); c.moveTo(-s * 0.06, s * 0.24); c.lineTo(s * 0.11, s * 0.42); c.lineTo(s * 0.24, s * 0.23); c.closePath(); c.fill();
-    const body = new Path2D();
-    body.moveTo(-s * 0.58, 0);
-    body.bezierCurveTo(-s * 0.18, -s * 0.43, s * 0.39, -s * 0.41, s * 0.65, 0);
-    body.bezierCurveTo(s * 0.34, s * 0.36, -s * 0.18, s * 0.36, -s * 0.58, 0);
-    c.fillStyle = dark ? INK : STOCK; c.fill(body);
-    c.save(); c.clip(body);
-    c.fillStyle = INK; c.strokeStyle = INK;
-    if (style === 1) for (const bar of [-0.32, -0.1, 0.12]) c.fillRect(bar * s, -s, s * 0.12, s * 2);
-    if (style === 2) {
-      c.fillStyle = STOCK;
-      for (const [sx, sy, r] of [[-0.3, -0.06, 0.065], [-0.12, 0.12, 0.055], [0.06, -0.13, 0.065], [0.2, 0.1, 0.05]]) { c.beginPath(); c.arc(sx * s, sy * s, r * s, 0, TAU); c.fill(); }
-    }
-    if (style === 3) {
-      c.lineWidth = Math.max(1, s * 0.05);
-      for (const sx of [-0.34, -0.14, 0.06]) { c.beginPath(); c.arc(sx * s, 0, s * 0.19, -1.05, 1.05); c.stroke(); }
-    }
-    if (style === 4) c.fillRect(-s, -s, s * 2, s);
-    if (style === 5) {
-      c.lineWidth = Math.max(0.9, s * 0.045);
-      c.beginPath();
-      for (let k = -4; k <= 4; k++) { c.moveTo(k * 0.17 * s - 0.25 * s, 0.5 * s); c.lineTo(k * 0.17 * s + 0.15 * s, -0.5 * s); }
-      c.stroke();
-    }
-    c.restore();
-    c.strokeStyle = edge; c.lineWidth = hooked ? Math.max(2.2, s * 0.11) : Math.max(1.2, s * 0.065); c.stroke(body);
-    c.strokeStyle = dark ? STOCK : INK; c.lineWidth = Math.max(0.9, s * 0.045);
-    c.beginPath(); c.moveTo(s * 0.31, -s * 0.2); c.quadraticCurveTo(s * 0.15, 0, s * 0.29, s * 0.2); c.stroke();
-    c.fillStyle = STOCK; c.beginPath(); c.arc(s * 0.43, -s * 0.07, s * 0.085, 0, TAU); c.fill();
-    c.strokeStyle = INK; c.lineWidth = Math.max(0.8, s * 0.035); c.stroke();
-    c.fillStyle = INK; c.beginPath(); c.arc(s * 0.45, -s * 0.07, s * 0.042, 0, TAU); c.fill();
-    c.restore();
+    drawFish(this.ctx, x, y, size, style, direction, phase, hooked);
   }
 
   drawBubbles(w, h, t) {

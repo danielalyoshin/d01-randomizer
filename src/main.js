@@ -2,7 +2,8 @@ import '@fontsource-variable/big-shoulders/opsz.css';
 import '@fontsource-variable/archivo/wdth.css';
 import './style.css';
 import { COLORS, MIN_GROUPS, MAX_GROUPS, STORAGE_KEY, defaultGroups, restoreState, createExpedition, smallestCatch, formatLength } from './randomizer.js';
-import { icon, fishArt } from './icons.js';
+import { icon } from './icons.js';
+import { fishArt } from './fish-art.js';
 import { Ocean } from './ocean.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -258,7 +259,7 @@ function showResults(previous = false) {
   const winner = smallestCatch(lastCatch);
   const largest = Math.max(...lastCatch.map(fish => fish.length));
   const boatNumber = (id, i) => String((groups.findIndex(group => group.id === id) + 1 || i + 1)).padStart(2, '0');
-  $('#results-content').innerHTML = `<div class="result-heading"><p class="eyebrow">${previous ? 'The last catch' : 'The catch is in'}</p><div class="winner-art">${fishArt(winner.fishColor, { red: true })}</div><div class="winner-copy"><span class="next-presenter-tag">${icon('fish', 18)} Next to present</span><h2>${escapeHtml(winner.name)}</h2><p>At <strong>${formatLength(winner.length)} cm</strong>, the smallest catch takes the floor.</p></div></div><div class="catch-comparison"><div class="comparison-heading"><span>The day’s haul</span><span>Fish length</span></div>${lastCatch.map((fish, i) => `<div class="catch-row ${fish.id === winner.id ? 'winning-catch' : ''}" style="--i:${i}"><div class="catch-group"><span class="catch-number">${boatNumber(fish.id, i)}</span><span>${escapeHtml(fish.name)}</span>${fish.id === winner.id ? '<span class="smallest-badge">SMALLEST</span>' : ''}</div><div class="fish-comparison-track"><div class="comparison-fish" style="--scale:${fish.length / largest}">${fishArt(fish.fishColor, { red: fish.id === winner.id })}</div></div><span class="fish-length">${formatLength(fish.length)} <small>cm</small></span></div>`).join('')}<div class="comparison-scale"><span>0</span><span>Lengths drawn to scale</span><span>${formatLength(largest)} cm</span></div></div>`;
+  $('#results-content').innerHTML = `<div class="result-heading"><p class="eyebrow">${previous ? 'The last catch' : 'The catch is in'}</p><div class="winner-art">${fishArt(winner.fishColor, { red: true, detail: true })}</div><div class="winner-copy"><span class="next-presenter-tag">${icon('fish', 18)} Next to present</span><h2>${escapeHtml(winner.name)}</h2><p>At <strong>${formatLength(winner.length)} cm</strong>, the smallest catch takes the floor.</p></div></div><div class="catch-comparison"><div class="comparison-heading"><span>The day’s haul</span><span>Fish length</span></div>${lastCatch.map((fish, i) => `<div class="catch-row ${fish.id === winner.id ? 'winning-catch' : ''}" style="--i:${i}"><div class="catch-group"><span class="catch-number">${boatNumber(fish.id, i)}</span><span>${escapeHtml(fish.name)}</span>${fish.id === winner.id ? '<span class="smallest-badge">SMALLEST</span>' : ''}</div><div class="fish-comparison-track"><div class="comparison-fish" style="--scale:${fish.length / largest}">${fishArt(fish.fishColor, { red: fish.id === winner.id })}</div></div><span class="fish-length">${formatLength(fish.length)} <small>cm</small></span></div>`).join('')}<div class="comparison-scale"><span>0</span><span>Lengths drawn to scale</span><span>${formatLength(largest)} cm</span></div></div>`;
   const group = groups.find(group => group.id === winner.id);
   $('#mark-presented').disabled = !group || group.excluded;
   $('#mark-presented').innerHTML = `${bolt()}<span class="label">${group?.excluded ? 'Already marked presented' : 'Mark presented & return'}</span>${icon('check', 22)}`;
