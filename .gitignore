@@ -16,6 +16,16 @@ npm-debug.log*
 .impeccable/config.local.json
 .impeccable/questions/
 
+# Impeccable scratch output (mock comps, review screenshots, build state)
+.impeccable/archive/
+.impeccable/build/
+.impeccable/mocks/
+.impeccable/review/
+
+# Machine-local agent config
+.codex/
+.claude/settings.local.json
+
 # OS and editors
 .DS_Store
 .vscode/
