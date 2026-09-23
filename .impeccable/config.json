@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "src/style.css"
+        ],
+        "createdAt": "2026-09-23T16:19:55.813Z",
+        "reason": "To-Scale Haul tick ruler: a real measurement surface (DESIGN.md: tick ruler every 10%)"
+      }
+    ]
+  }
+}
