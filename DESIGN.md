@@ -231,7 +231,7 @@ Every rectangle is square-cornered, with no radius anywhere. Three silhouettes c
 - **Slanted lever.** The trailing edge is sheared by 16px (12px on the Options tag), with a 3px black edge showing around the face.
 - **Notched feed.** The catch feed clips its bottom-left corner by 12px.
 
-Circles appear only as printed discs: bolts, the sun, bobbers, the shockwave rings behind the cast and the winner fish, and the dotted search ring around a descending hook. Status dots are squares. Hook plates are rectangles with a V-notch pointing down the line. Fixed rotations are part of the form: -2° toast, -4° help title, -5° PRESENTED stamp, -6° verdict and SMALLEST stamp, -12° winner fish, -15° cast callout.
+Circles appear only as printed discs: bolts, the sun, bobbers, the shockwave rings behind the cast and the winner fish, and the dotted search ring around a descending hook. Status dots are squares. Hook plates are rectangles with a V-notch pointing down the line. Fixed rotations are part of the form: -2° toast, -4° help title, -5° PRESENTED stamp, -6° verdict, SMALLEST and LINES HELD stamps, -12° winner fish, -15° cast callout.
 
 ## Components
 
@@ -245,6 +245,7 @@ The controls are tactile and mechanical: black-edged plates that you press into 
 - **Icon button:** A 40px square with a 2px black frame on cream, inverting on hover. The pause button is 56px, cream-framed on black.
 - **Text button:** Display caps at the 19px UI step (800, 0.04em) with no frame. On hover the type turns red and a 2px underline appears 5px below.
 - **Add button:** A full-width 2px dashed black frame with UI caps and the group count pushed to the right. On hover it fills black, the type turns cream and the dash goes solid.
+- **Toast Undo:** Resetting presented, removing a boat and marking a winner presented each print an ink toast with an Undo plate: cream face, 19px UI caps at 900, a red drop, a 12px slant. The offer holds for 8s (while pointed at or focused), and ends as soon as the crew changes again or a round is cast. Ctrl/⌘+Z does the same.
 
 ### Chips
 - **Eyebrow tag:** A black slab with cream caps at the 14px label step (800, 0.16em tracking). It opens dialogs and headings.
@@ -260,7 +261,7 @@ The controls are tactile and mechanical: black-edged plates that you press into 
 
 ### Inputs / Fields
 - **Style:** Crew rows are ruled ledger lines (1px black under each, 3px black above the list) with a borderless transparent Archivo input at 16px/600. Each row ends in its Presented tick box, then the remove button.
-- **Presented, from Options:** A 22px square with a 2px black frame. Checked, it fills black with a cream check, never red. Each is named after its boat ("Group 03 presented"). The tip under the list says both ways in: tick it here, or click the boat's name tag on the board.
+- **Presented, from Options:** A 22px square with a 2px black frame, set in a 44px hit square that borrows the row's gaps so the ledger keeps its spacing. Checked, it fills black with a cream check, never red. Each is named after its boat ("Group 03 presented"). The tip under the list says both ways in: tick it here, or click the boat's name tag on the board.
 - **Presented, on the board:** The board the room watches carries no form controls. Each name tag is itself the TA's toggle, one click either way (a checkbox named "Group 03 already presented"). A presented boat's tag is struck with a rubber stamp: PRESENTED in 19px display caps at weight 900, 0.1em tracking, faded ink, in a 2px faded-ink frame on paper, turned -5° and overlapping the foot of the tag by 12px. It steps down to the 14px label step in lanes under 130px (twelve boats, phones). Pointing at a tag previews the click: a dashed ink proof of the stamp on a ready boat, or a dashed stamp ready to lift on a presented one. The stamp row is always reserved, so marking a boat never moves the dock. During a round the tags are disabled and pointer-inert.
 - **Focus:** The row shades to stock shade with a 3px red underline.
 - **Excluded / Disabled:** The name is struck through with a 2px line in faded ink, and the tick box is checked. On the board the name tag turns into a faded-ink outline with its name struck through and its number plate printed faded ink.
@@ -274,13 +275,16 @@ Each page hangs on a spine: a 46px shaded gutter behind a 3px black rule, with t
 ### Catch Feed (signature)
 A black plate with two bolts and a notched corner. It shows a red caps label (NO BITES YET, FISH ON!, REEL THEM IN, ALL ASHORE), a tabular count, the latest catch's number and name in 22px title caps on up to two lines, and a segmented gauge: one red segment per boat in the round, 3px apart, filling from the left as catches land, so the segments count the boats.
 
+### Hold Stamp
+A paused round is struck across the middle of the board: LINES HELD in display caps at 900, clamp(56px, 9vw, 140px), ink on a paper face inside a 6px ink frame with a second 2px rule 4px inside it, turned -6°. A black tag underneath reads "Paused · Space to resume" (just "Paused" on touch screens). It lands with the SMALLEST stamp's motion and takes no red, because a hold is the opposite of pressure. A cast callout caught mid-flight hides until the round resumes.
+
 ### Dock Strip (signature)
 The board's name tags, one per lane: a black tag with a paper number plate at the head of 22px title caps, filling its lane and wrapping to a second line, then cut with an ellipsis. The tags share a baseline over the boats, with a reserved stamp row beneath them. In lanes wider than about 490px (two or three boats) the tags grow with the lane up to the 30px numeral step. When the camera dives they stay pinned where they are, and a 3px ink rail joins the tags into a strip, the fishing lines running up behind it to their boats. A tag turns red while its boat fights a fish and back to ink once the catch is aboard. A moored boat's tag is a faded-ink outline, struck through and stamped PRESENTED.
 
 ### To-Scale Haul (signature)
 The results table. Each row has a number block and name, then a measuring bar that ends in a printed fish drawn to scale against the largest catch, over a tick ruler every 10%, then the length. A tilted red SMALLEST stamp lands on the empty ruler just past the winner's fish (over its bar if the fish runs nearly full length, and never past the ruler's end). It sits out of flow, so the winning row is laid out exactly like every other. On the stamp, the smallest catch's row inverts to black and its number, bar, fish and length turn red.
 
-A fresh result is staged in about 1.5s, evidence before verdict. The rows slam in by boat order within 340ms. A tape then runs out along every ruler at one speed, and each length prints where its tape stops. SMALLEST stamps at 1s and the row inks over on impact. "Next to present" slides in carrying the winner's number on a black plate with a red drop, and the name is shouted last at 1.2s; that moment announces the verdict to screen readers and plays the finish tone. The sentence and the actions print at 1.5s. Until the stamp, nothing about the winner is on the page. A replayed result ("View last catch") and reduced motion open on the finished page.
+A fresh result is staged in about 1.5s, evidence before verdict. The rows slam in by boat order within 340ms. A tape then runs out along every ruler at one speed, and each length prints where its tape stops. SMALLEST stamps at 1s and the row inks over on impact. "Next to present" slides in carrying the winner's number on a black plate with a red drop, and the name is shouted last at 1.2s with the finish tone. The sentence and the actions print at 1.5s; only then does Mark presented take a click or Enter, focus land on it, and the verdict get spoken to screen readers from a status line inside the dialog (after the focus move, so the button's name never cuts it short). Until then the page itself holds focus. To assistive tech the haul is a table: a row per boat, headed by its number and name. Until the stamp, nothing about the winner is on the page. A replayed result ("View last catch") and reduced motion open on the finished page.
 
 The bar and fish together occupy the catch's exact proportion of the full ruler. Fish shrink to fit short measurements; they never add a fixed length to the scale. The winner's ink band extends behind the row without shifting its ruler or numerals.
 

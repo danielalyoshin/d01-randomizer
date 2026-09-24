@@ -120,8 +120,9 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
   border: 3px solid var(--ink);
   clip-path: polygon(0 0, calc(100% - var(--corner)) 0, 100% var(--corner), 100% 100%, 0 100%);
 }
+/* The panel stops 12px above the band, so the lever stays in reach with Options open; a long crew scrolls. */
 .options-panel {
-  width: min(360px, calc(100vw - 48px)); max-height: calc(100dvh - 130px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--ink) var(--stock-2);
+  width: min(360px, calc(100vw - 48px)); max-height: calc(100dvh - 230px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--ink) var(--stock-2);
   margin-top: 14px; padding: 18px 18px 34px;
   background: var(--bolt) 8px calc(100% - 7px) / 18px 18px no-repeat, var(--bolt) calc(100% - 8px) calc(100% - 7px) / 18px 18px no-repeat, linear-gradient(to bottom left, transparent 50%, var(--ink) 50% calc(50% + 3px), transparent 0) right top / var(--corner) var(--corner) no-repeat border-box, var(--stock);
 }
@@ -137,12 +138,19 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .crew-row [data-name]:disabled { color: var(--ink-2); }
 .presented-box { appearance: none; display: grid; flex-shrink: 0; width: 22px; height: 22px; margin: 0; border: 2px solid var(--ink); background: var(--stock); cursor: pointer; }
 .presented-box:checked { background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.5' fill='none' stroke='%23f2ede2' stroke-width='2.6' stroke-linecap='square'/%3E%3C/svg%3E") center / 15px no-repeat; }
-.presented-box:hover:not(:disabled) { box-shadow: 2px 2px 0 var(--ink); }
+/* The tick box prints at 22px, but the whole 44px square around it takes the click. It borrows
+   the row's gaps on either side, so the ledger line keeps its spacing. */
+.presented-hit { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; margin: 0 -10px; cursor: pointer; }
+.presented-hit:has(:disabled) { cursor: not-allowed; }
+.presented-hit:hover .presented-box:not(:disabled) { box-shadow: 2px 2px 0 var(--ink); }
 .presented-box:disabled { opacity: .4; cursor: not-allowed; }
 .presented-box:focus-visible { outline-offset: 2px; }
 .remove-group { width: 32px; height: 32px; flex-shrink: 0; border-color: transparent; background: transparent; }
 .crew-row.excluded .boat-number { background: transparent; color: var(--ink-3); box-shadow: inset 0 0 0 2px var(--ink-3); }
 .crew-row.excluded [data-name] { color: var(--ink-3); text-decoration: line-through 2px; }
+/* A name that another boat already carries is refused, on a black slab under the list. */
+.crew-error { display: flex; gap: 9px; margin: 10px 0 0; padding: 9px 11px 8px; background: var(--ink); color: var(--stock); font-size: var(--t-label); font-weight: 600; line-height: 1.4; }
+.crew-error::before { content: ''; flex: none; width: 9px; height: 9px; margin-top: 5px; background: var(--red); }
 .add-button { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 12px; padding: 10px 12px; border: 2px dashed var(--ink); background: transparent; font: 800 var(--t-ui)/1 var(--display); letter-spacing: .04em; text-transform: uppercase; transition: background .12s, color .12s; }
 .add-button:hover:not(:disabled) { background: var(--ink); color: var(--stock); border-style: solid; }
 .add-button:disabled { opacity: .4; }
@@ -204,6 +212,16 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .is-fishing .cast-callout span { animation: slam-tag 1.7s cubic-bezier(.16, 1, .3, 1) both; }
 .is-fishing .cast-callout::before { animation: shockwave 1.7s cubic-bezier(.1, .7, .3, 1) both; }
 .is-paused :is(.cast-callout strong, .cast-callout span, .cast-callout::before, .status-dot) { animation-play-state: paused; }
+/* LINES HELD — a paused round is stamped across the board, so the room reads a hold, not a crash.
+   A rubber stamp in ink on paper, double-ruled like a harbour mark: pausing is the opposite of
+   pressure, so it takes no red. It sits under Options, so the TA can still reach the panel. */
+.hold-stamp { display: none; position: absolute; z-index: 3; top: 40%; left: 50%; width: max-content; max-width: 92%; text-align: center; pointer-events: none; translate: -50% -50%; rotate: -6deg; }
+.hold-stamp strong { display: block; padding: .12em .24em .05em; border: 6px solid var(--ink); background: var(--stock); box-shadow: inset 0 0 0 4px var(--stock), inset 0 0 0 7px var(--ink); color: var(--ink); font: 900 clamp(56px, 9vw, 140px)/.86 var(--display); letter-spacing: .01em; text-transform: uppercase; }
+.hold-stamp > span { display: inline-block; margin-top: 12px; padding: 7px 14px 6px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1 var(--display); letter-spacing: .16em; text-transform: uppercase; }
+.is-paused .hold-stamp { display: block; animation: stamp .36s cubic-bezier(.16, 1, .3, 1) both; }
+/* A cast callout caught mid-flight waits out the hold unseen, and flies on when the round resumes. */
+.is-paused .cast-callout { visibility: hidden; }
+@media (hover: none) { .hold-key { display: none; } }
 
 /* HUD plates */
 .scene-bottom { grid-area: 1 / 1; align-self: end; justify-self: stretch; display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; min-width: 0; z-index: 3; margin: 18px; pointer-events: none; }
@@ -271,12 +289,22 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .fairness-note p { margin: 0; font-size: var(--t-body); line-height: 1.5; }
 .fairness-note strong { display: block; margin-bottom: 3px; color: var(--ink); font: 800 var(--t-title)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
 /* Fine print keeps a short measure: about 60 characters a line. */
+/* The skipper's keys: a ruled ledger, key caps on the left, two to a line where there's room. */
+.help-keys { margin-top: 18px; }
+.help-keys h3 { margin: 0 0 8px; font: 800 var(--t-title)/1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
+.help-keys dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 26px; margin: 0; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.help-keys dl > div { display: grid; grid-template-columns: 78px minmax(0, 1fr); column-gap: 12px; align-items: center; padding: 9px 0 8px; }
+.help-keys dl > div:nth-child(n + 3) { border-top: 1px solid var(--ink); }
+.help-keys dt { display: flex; gap: 4px; }
+.help-keys dd { margin: 0; font-size: var(--t-body); line-height: 1.3; color: var(--ink-2); }
 .help-footnote { max-width: 48ch; margin: 14px 0 18px; font-size: var(--t-label); line-height: 1.6; color: var(--ink-3); text-wrap: pretty; }
 
 /* The reveal. Portrait and small screens get a bound page that scrolls; landscape screens
    get a full-screen spread (see the orientation query below) that never needs to.
    These styles are the finished page; the staged entrance lives in "Evidence first" below. */
 .results-dialog { width: min(1400px, calc(100% - 28px)); padding: 26px 36px 22px 76px; overflow-x: hidden; }
+/* During a staged reveal the page itself holds focus until the actions print; it is not a control. */
+.results-dialog:focus { outline: none; }
 .result-heading .eyebrow { margin-bottom: 14px; }
 .winner-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: center; }
 .winner-art { position: relative; width: 190px; height: 92px; }
@@ -409,8 +437,12 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .is-revealing .winner-art > svg { animation: fish-slam .5s var(--slam) calc(var(--beat-verdict) + .1s) both; }
 .is-revealing :is(.winner-copy p, .results-actions, .results-footnote) { animation: print-in .28s var(--slam) var(--beat-after) both; }
 
-.toast { position: fixed; left: 50%; bottom: 28px; z-index: 10; width: max-content; max-width: calc(100% - 32px); padding: 13px 20px 12px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; box-shadow: 5px 5px 0 var(--red); opacity: 0; pointer-events: none; transform: translate(-50%, 18px) rotate(-2deg); transition: opacity .2s, transform .28s cubic-bezier(.16, 1, .3, 1); }
+.toast { position: fixed; left: 50%; bottom: 28px; z-index: 10; display: flex; align-items: center; gap: 18px; width: max-content; max-width: calc(100% - 32px); padding: 13px 20px 12px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; box-shadow: 5px 5px 0 var(--red); opacity: 0; pointer-events: none; transform: translate(-50%, 18px) rotate(-2deg); transition: opacity .2s, transform .28s cubic-bezier(.16, 1, .3, 1); }
 .toast.visible { opacity: 1; transform: translate(-50%, 0) rotate(-2deg); }
+/* Undo is a cream plate on the ink toast with a red drop, like the plates on the band. */
+.toast-undo { --drop: var(--red); --slant: 12px; min-height: 42px; padding: 6px 26px 6px 12px; font-size: var(--t-ui); font-weight: 900; }
+.toast.visible .toast-undo { pointer-events: auto; }
+.toast :focus-visible { outline-color: var(--stock); }
 
 @keyframes blink { 50% { opacity: .15; } }
 @keyframes slam {
@@ -481,7 +513,7 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .boat-tag { font-size: var(--t-ui); }
   .game-options { top: 12px; right: 12px; }
   .game-options > summary { min-height: 44px; font-size: var(--t-ui); }
-  .options-panel { width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 84px); }
+  .options-panel { width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 275px); }
   .scene-bottom { margin: 12px; gap: 10px; }
   .depth-gauge { padding: 7px 14px 7px 9px; gap: 7px; }
   .gauge-key, #depth-label { display: none; }
@@ -494,11 +526,15 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .cast-actions, .cast-actions .lever { width: 100%; }
   .fishing-actions { justify-content: center; min-height: 64px; }
   .cast-callout { transform: translate(-50%, -50%) rotate(-24deg); }
+  /* The band stacks here, so the toast rides above it rather than over the lever. */
+  .toast { bottom: 212px; }
   dialog { --spine: 30px; --bolt-s: 20px; --bolt-x: 5px; padding: 24px 18px 20px 50px; max-height: calc(100dvh - 24px); }
   .dialog-close { top: 12px; right: 22px; width: 36px; height: 36px; }
   .help-dialog h2 { margin-right: 34px; }
   .help-dialog li { grid-template-columns: 40px minmax(0, 1fr); }
   .help-dialog li strong { font-size: var(--t-ui); }
+  .help-keys dl { grid-template-columns: minmax(0, 1fr); }
+  .help-keys dl > div:nth-child(2) { border-top: 1px solid var(--ink); }
   .results-dialog { padding: 22px 14px 18px 46px; }
   .winner-stage { grid-template-columns: minmax(0, 1fr); }
   .winner-art { width: 150px; height: 70px; margin: -4px 0 12px; }
@@ -529,7 +565,7 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .spine { display: none; }
   .game-card { height: 100dvh; min-height: 320px; border: 0; }
   .game-options { top: 12px; right: 12px; }
-  .options-panel { max-height: calc(100dvh - 80px); }
+  .options-panel { max-height: calc(100dvh - 164px); }
   .scene-bottom { margin: 12px; }
   .game-controls { flex-direction: row; min-height: 0; padding: 12px 18px; text-align: left; }
   .control-message strong { font-size: var(--t-lever); }

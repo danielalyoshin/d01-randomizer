@@ -107,9 +107,13 @@ test('group editing, limits, reduced motion, and saved results work without HTML
   await page.keyboard.press('Escape');
   await expect(page.locator('#crew-list')).toBeHidden();
   await expect(page.locator('#options-toggle')).toBeFocused();
+  // Space belongs to the game: with focus left on the Options tag it casts, and never reopens Options.
   await page.keyboard.press('Space');
+  await expect(page.locator('#results-dialog')).toBeVisible();
+  await expect(page.locator('#crew-list')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await page.locator('#options-toggle').click();
   await expect(page.locator('#crew-list')).toBeVisible();
-  await expect(page.locator('#results-dialog')).toBeHidden();
   const name = '<b>Fish & Chips</b>';
   await page.getByRole('textbox', { name: 'Name for boat 1', exact: true }).fill(name);
   await page.getByRole('textbox', { name: 'Name for boat 2', exact: true }).click();
@@ -123,7 +127,7 @@ test('group editing, limits, reduced motion, and saved results work without HTML
   await expect(page.locator('#crew-list')).toBeHidden();
   await expect(page.locator('#results-dialog')).toBeVisible();
   await expect(page.locator('.catch-row')).toHaveCount(12);
-  await page.getByRole('button', { name: 'Back to the boats', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Back to the boats', exact: true }).click();
   await page.reload();
   await page.locator('#options-toggle').click();
   await page.getByRole('button', { name: 'View last catch' }).click();
@@ -180,4 +184,89 @@ test('the reveal fits every row on common projector screens and Options folds aw
   await page.getByRole('button', { name: 'Cast the lines' }).click();
   await expect(page.locator('.catch-row')).toHaveCount(12);
   expect(await everyRowFits()).toBe(true);
+});
+
+test('the results speak the verdict, focus the way on, and read as a table', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('img', { name: /Fishing boats/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await page.keyboard.press('r');
+  const results = page.locator('#results-dialog');
+  await expect(results).toBeVisible();
+  // While the evidence prints, the page itself holds focus, so an early Enter can't dismiss or mark.
+  await expect(results).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(results).toBeVisible();
+  // One control is named "Back to the boats"; the corner cross is just "Close".
+  await expect(page.getByRole('button', { name: 'Back to the boats', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+  const haul = page.getByRole('table', { name: 'Every catch, in boat order' });
+  await expect(haul.getByRole('row')).toHaveCount(9);
+  await expect(haul.getByRole('columnheader')).toHaveText(['The day’s haul', 'Catch drawn to scale', 'Fish length']);
+  await expect(haul.getByRole('rowheader').first()).toHaveText('01Group 01');
+  // Focus lands on Mark presented as the actions print, and the verdict is spoken from inside the dialog.
+  await expect(page.getByRole('button', { name: 'Mark presented & return' })).toBeFocused({ timeout: 4000 });
+  const winner = await page.locator('.result-heading h2').textContent();
+  await expect(page.locator('#results-status')).toContainText(`${winner}, presents next with the smallest fish`);
+  await page.keyboard.press('Enter');
+  await expect(results).toBeHidden();
+  await expect(page.getByRole('checkbox', { name: `${winner} already presented` })).toBeChecked();
+  await expect(page.locator('#toast')).toContainText(`${winner} marked presented`);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('checkbox', { name: `${winner} already presented` })).not.toBeChecked();
+  await expect(page.locator('#ready-count')).toHaveText('8');
+  await expect(page.locator('#toast')).toContainText('back on board');
+});
+
+test('Space casts and pauses from any control, and a held round is stamped on the board', async ({ page }) => {
+  await page.goto('/');
+  // Focus left on a name tag after a click: Space casts rather than toggling it again.
+  await page.getByRole('checkbox', { name: 'Group 02 already presented' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Group 02 already presented' })).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: 'Pause fishing' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Group 02 already presented' })).toBeChecked();
+  await expect(page.locator('.hold-stamp')).toBeHidden();
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: 'Resume fishing' })).toBeVisible();
+  await expect(page.locator('.hold-stamp')).toBeVisible();
+  await expect(page.locator('.hold-stamp strong')).toHaveText('Lines held');
+  await page.keyboard.press('Space');
+  await expect(page.getByRole('button', { name: 'Pause fishing' })).toBeVisible();
+  await expect(page.locator('.hold-stamp')).toBeHidden();
+});
+
+test('duplicate names are refused, Enter ticks a box, and a reset or a removed boat can be undone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.locator('#options-toggle').click();
+  const boat1 = page.getByRole('textbox', { name: 'Name for boat 1', exact: true });
+  const boat2 = page.getByRole('textbox', { name: 'Name for boat 2', exact: true });
+  await boat1.fill('Rebase Rangers');
+  await boat1.press('Tab');
+  await boat2.fill('  rebase   RANGERS ');
+  await expect(boat2).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#crew-error')).toHaveText('Boat 01 already sails as “Rebase Rangers”. Pick another name.');
+  await boat2.press('Enter');
+  await expect(boat2).toHaveValue('Group 02');
+  await expect(boat2).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#crew-error')).toContainText('Kept “Group 02”.');
+  await expect(page.locator('.boat-name').nth(1)).toHaveText('Group 02');
+  // Space belongs to the game, so Enter ticks a Presented box.
+  await page.getByRole('checkbox', { name: 'Group 02 presented', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('checkbox', { name: 'Group 02 presented', exact: true })).toBeChecked();
+  await expect(page.locator('#ready-count')).toHaveText('7');
+  await page.getByRole('button', { name: 'Reset presented', exact: true }).click();
+  await expect(page.locator('#ready-count')).toHaveText('8');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.locator('#ready-count')).toHaveText('7');
+  await expect(page.getByRole('checkbox', { name: 'Group 02 presented', exact: true })).toBeChecked();
+  await page.getByRole('button', { name: 'Remove Rebase Rangers' }).click();
+  await expect(page.locator('[data-exclude]')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#crew-list')).toBeVisible();
+  await expect(page.locator('[data-exclude]')).toHaveCount(8);
+  await expect(boat1).toHaveValue('Rebase Rangers');
+  await expect(boat1).toBeFocused();
 });

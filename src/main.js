@@ -13,6 +13,10 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&'
 const boatNumber = (index) => String(index + 1).padStart(2, '0');
 // No-break spaces keep the number with the first word, so a long name wraps after it, not before.
 const boatLabel = (index, name) => `${boatNumber(index)}\u00a0·\u00a0${name}`;
+// Names are compared as the room reads them: case and spacing don't make a new name.
+const cleanName = (name) => name.trim().replace(/\s+/g, ' ');
+const nameKey = (name) => cleanName(name).toLocaleLowerCase();
+const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
 let saved = null;
 try { saved = restoreState(localStorage.getItem(STORAGE_KEY)); } catch { /* Storage is optional. */ }
 let groups = saved?.groups || defaultGroups();
@@ -24,6 +28,12 @@ let muted = true;
 let audioContext;
 let toastTimer;
 let resultIsPrevious = false;
+// The toast's one step back: { before, done, refocus } for a reset, a removal or a mark.
+let undoStep = null;
+// Mark presented works once the room has seen the name; the verdict is spoken as focus lands.
+let verdictIn = false;
+let pendingVerdict = null;
+let spaceTaken = false;
 
 $('#app').innerHTML = `
   <main class="app-shell">
@@ -38,6 +48,7 @@ $('#app').innerHTML = `
         <div class="options-panel">
           <div class="crew-heading"><h2 id="crew-title">Boats</h2><span class="count-badge" id="group-count">08</span></div>
           <div class="crew-list" id="crew-list" role="group" aria-labelledby="crew-title"></div>
+          <p class="crew-error" id="crew-error" hidden></p>
           <button class="add-button" id="add-group">${icon('plus', 18)} Add a boat <span id="capacity-label">8 / 12</span></button>
           <p class="crew-tip">Tick a boat here, or click its name tag on the board, to mark it presented.</p>
           <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Put every boat back in play">Reset presented</button></div>
@@ -50,11 +61,12 @@ $('#app').innerHTML = `
       </details>
       <div class="ocean-viewport" id="ocean-viewport">
         <div class="ocean-world" id="ocean-world">
-          <canvas id="ocean" aria-label="Fishing boats above a fast-moving school of fish. Staggered hooks catch whichever fish they meet."></canvas>
+          <canvas id="ocean" role="img" aria-label="Fishing boats above a fast-moving school of fish. Staggered hooks catch whichever fish they meet."></canvas>
           <div class="boat-labels" id="boat-labels" role="group" aria-label="Boats at the dock. Select a name tag to mark it presented."></div>
         </div>
       </div>
       <div class="cast-callout" aria-hidden="true"><strong>Lines in!</strong><span>Every boat for itself</span></div>
+      <div class="hold-stamp" aria-hidden="true"><strong>Lines held</strong><span>Paused<span class="hold-key"> · Space to resume</span></span></div>
       <div class="scene-bottom">
         <span class="depth-gauge"><span class="gauge-key">Depth</span><span class="gauge-value"><span id="depth">0.0</span><small>m</small></span><span id="depth-label">SEA LEVEL</span></span>
         <div class="catch-feed" id="catch-feed" hidden><div class="catch-feed-heading"><span class="catch-feed-label">NO BITES YET</span><span class="catch-feed-count" id="catch-feed-count">0 / 8 HOOKED</span></div><strong id="catch-feed-title">Who’s getting a bite?</strong></div>
@@ -62,31 +74,64 @@ $('#app').innerHTML = `
       <div class="boat-scroll-hint"><span>←</span> Scroll to see every boat <span>→</span></div>
       <div class="game-controls">
         <div class="control-message"><strong id="control-title">Smallest fish presents next.</strong><span id="control-subtitle">8 boats ready to cast.</span></div>
-        <div class="cast-actions" id="cast-actions"><button class="lever" id="cast-button">${bolt()}<span class="label">Cast the lines</span>${icon('arrow', 26)}</button></div>
-        <div class="fishing-actions" id="fishing-actions" hidden><button class="icon-button pause-button" id="pause-button" aria-label="Pause fishing">${icon('pause', 24)}</button><button class="plate-button skip-button" id="skip-button">${bolt()}<span class="label">Reveal catch</span>${icon('skip', 20)}</button></div>
+        <div class="cast-actions" id="cast-actions"><button class="lever" id="cast-button" aria-keyshortcuts="Space">${bolt()}<span class="label">Cast the lines</span>${icon('arrow', 26)}</button></div>
+        <div class="fishing-actions" id="fishing-actions" hidden><button class="icon-button pause-button" id="pause-button" aria-label="Pause fishing" aria-keyshortcuts="Space">${icon('pause', 24)}</button><button class="plate-button skip-button" id="skip-button" aria-keyshortcuts="R">${bolt()}<span class="label">Reveal catch</span>${icon('skip', 20)}</button></div>
       </div>
     </section>
   </main>
 
-  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. Open Options to rename, add or remove boats (2–12).</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><p class="help-footnote">Boat names and who has presented are saved in this browser. Sound is optional. <kbd>Space</kbd> casts or pauses; <kbd>Esc</kbd> closes this guide. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button></dialog>
+  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. Open Options to rename, add or remove boats (2–12).</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat or a mark.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page or Options.</dd></div></dl></section><p class="help-footnote">Boat names and who has presented are saved in this browser. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
 
-  <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Back to the boats">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison"></div><div class="results-actions"><button class="lever" id="mark-presented">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
-  <div class="toast" id="toast" role="status"></div>
+  <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter" tabindex="-1"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Close" title="Close">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison" role="table" aria-label="Every catch, in boat order"></div><div class="results-actions"><button class="lever" id="mark-presented" aria-keyshortcuts="Enter">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" id="results-back" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
+  <div class="toast" id="toast"><span id="toast-message" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="plate-button toast-undo" id="toast-undo" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Z' : 'Control+Z'}" hidden><span class="label">Undo</span></button></div>
   <span class="sr-only" id="live-status" role="status" aria-live="polite" aria-atomic="true"></span>
 `;
 
 function persist() {
+  // Any later change to the crew retires the undo on offer.
+  if (undoStep) dismissToast();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ groups, lastCatch })); } catch { /* The game works without local storage. */ }
 }
 
-function toast(message) {
-  clearTimeout(toastTimer);
-  $('#toast').textContent = message;
+// A toast that can take the action back stays up longer, and holds while the TA points at or focuses Undo.
+function toast(message, undo = null) {
+  undoStep = undo;
+  $('#toast-message').textContent = message;
+  $('#toast-undo').hidden = !undo;
   $('#toast').classList.add('visible');
-  toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 3500);
+  armToast(undo ? 8000 : 3500);
+}
+function armToast(ms) { clearTimeout(toastTimer); toastTimer = setTimeout(dismissToast, ms); }
+function dismissToast() {
+  clearTimeout(toastTimer);
+  undoStep = null;
+  $('#toast').classList.remove('visible');
+  // Undo stays printed while the toast fades, but it is already spent.
+  toastTimer = setTimeout(() => { $('#toast-undo').hidden = true; }, 250);
+}
+const snapshot = () => groups.map(group => ({ ...group }));
+function runUndo() {
+  if (!undoStep || phase !== 'idle') return;
+  const { before, done, refocus } = undoStep;
+  const fromButton = document.activeElement === $('#toast-undo');
+  groups = before;
+  persist(); renderCrew();
+  toast(done);
+  if (fromButton) {
+    const target = refocus?.();
+    (target?.checkVisibility() && !target.disabled ? target : $('#cast-button')).focus({ preventScroll: true });
+  }
+}
+$('#toast-undo').addEventListener('click', runUndo);
+for (const type of ['pointerenter', 'focus', 'pointerleave', 'blur']) {
+  $('#toast-undo').addEventListener(type, () => {
+    if (!undoStep) return;
+    if ($('#toast-undo').matches(':hover, :focus')) clearTimeout(toastTimer); else armToast(4000);
+  });
 }
 
-function announce(message) { $('#live-status').textContent = message; }
+// A modal dialog makes the rest of the page inert, so speak from inside the open one.
+function announce(message) { ($('dialog[open] [role="status"]') || $('#live-status')).textContent = message; }
 function activeGroups() { return groups.filter(group => !group.excluded); }
 
 const ocean = new Ocean($('#ocean'), {
@@ -134,10 +179,11 @@ new ResizeObserver(() => ocean.setDock($('#boat-labels').offsetTop + $('#boat-la
 
 function renderCrew() {
   const fishing = phase === 'fishing';
-  $('#crew-list').innerHTML = groups.map((group, i) => `<div class="crew-row ${group.excluded ? 'excluded' : ''}" data-group-row="${escapeHtml(group.id)}"><span class="boat-number">${String(i + 1).padStart(2, '0')}</span><label class="sr-only" for="name-${escapeHtml(group.id)}">Name for boat ${i + 1}</label><input id="name-${escapeHtml(group.id)}" data-name="${escapeHtml(group.id)}" value="${escapeHtml(group.name)}" maxlength="32" autocomplete="off" spellcheck="false" ${fishing ? 'disabled' : ''}/><input type="checkbox" class="presented-box" data-present="${escapeHtml(group.id)}" aria-label="${escapeHtml(group.name)} presented" title="Presented" ${group.excluded ? 'checked' : ''} ${fishing ? 'disabled' : ''}/><button class="remove-group icon-button" data-remove="${escapeHtml(group.id)}" aria-label="Remove ${escapeHtml(group.name)}" ${fishing || groups.length <= MIN_GROUPS ? 'disabled' : ''}>${icon('close', 18)}</button></div>`).join('');
+  $('#crew-list').innerHTML = groups.map((group, i) => `<div class="crew-row ${group.excluded ? 'excluded' : ''}" data-group-row="${escapeHtml(group.id)}"><span class="boat-number">${String(i + 1).padStart(2, '0')}</span><label class="sr-only" for="name-${escapeHtml(group.id)}">Name for boat ${i + 1}</label><input id="name-${escapeHtml(group.id)}" data-name="${escapeHtml(group.id)}" value="${escapeHtml(group.name)}" maxlength="32" autocomplete="off" spellcheck="false" ${fishing ? 'disabled' : ''}/><label class="presented-hit"><input type="checkbox" class="presented-box" data-present="${escapeHtml(group.id)}" aria-label="${escapeHtml(group.name)} presented" title="Presented" ${group.excluded ? 'checked' : ''} ${fishing ? 'disabled' : ''}/></label><button class="remove-group icon-button" data-remove="${escapeHtml(group.id)}" aria-label="Remove ${escapeHtml(group.name)}" ${fishing || groups.length <= MIN_GROUPS ? 'disabled' : ''}>${icon('close', 18)}</button></div>`).join('');
   // The board prints who has presented and carries no controls of its own: the name tag
   // itself is the toggle, and a presented boat's tag is stamped PRESENTED.
   $('#boat-labels').innerHTML = groups.map((group, i) => `<div class="boat-label ${group.excluded ? 'excluded' : ''}" data-boat="${escapeHtml(group.id)}"><button type="button" class="boat-tag" role="checkbox" aria-checked="${group.excluded}" aria-label="${escapeHtml(group.name)} already presented" data-exclude="${escapeHtml(group.id)}" title="${escapeHtml(boatLabel(i, group.name))}" ${fishing ? 'disabled' : ''}><span class="boat-tag-text"><b class="boat-tag-number">${boatNumber(i)}</b> <span class="boat-name">${escapeHtml(group.name)}</span></span></button><span class="presented-stamp" aria-hidden="true">Presented</span></div>`).join('');
+  $('#crew-error').hidden = true;
   $('#ocean-world').style.minWidth = `${Math.max(640, groups.length * 110)}px`;
   $('#boat-labels').style.setProperty('--boats', groups.length);
   $('#group-count').textContent = String(groups.length).padStart(2, '0');
@@ -161,7 +207,23 @@ $('#crew-list').addEventListener('change', (event) => {
   const input = event.target.closest('[data-name]');
   if (!input || phase !== 'idle') return;
   const group = groups.find(group => group.id === input.dataset.name);
-  group.name = input.value.trim() || `Group ${String(groups.indexOf(group) + 1).padStart(2, '0')}`;
+  let name = cleanName(input.value);
+  if (!name) {
+    let number = groups.indexOf(group) + 1;
+    while (nameClash(`Group ${String(number).padStart(2, '0')}`, group.id)) number++;
+    name = `Group ${String(number).padStart(2, '0')}`;
+  }
+  // Two boats never share a name: the room couldn't tell whose fish it was. Keep the saved one.
+  const clash = nameClash(name, group.id);
+  if (clash) {
+    input.value = group.name;
+    const message = `Kept “${group.name}”. Boat ${boatNumber(groups.indexOf(clash))} already sails as “${clash.name}”.`;
+    flagName(input, message, false);
+    announce(message);
+    return;
+  }
+  flagName(input, '');
+  group.name = name;
   input.value = group.name;
   const tag = $(`[data-exclude="${CSS.escape(group.id)}"]`);
   tag.querySelector('.boat-name').textContent = group.name;
@@ -172,14 +234,38 @@ $('#crew-list').addEventListener('change', (event) => {
   persist();
 });
 
+function nameClash(name, id) {
+  const key = nameKey(name);
+  return key ? groups.find(group => group.id !== id && nameKey(group.name) === key) : undefined;
+}
+// The message under the crew list; `invalid` marks the field while the typed name is still a clash.
+function flagName(input, message, invalid = Boolean(message)) {
+  $('#crew-error').textContent = message;
+  $('#crew-error').hidden = !message;
+  if (invalid) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', 'crew-error'); }
+  else { input.removeAttribute('aria-invalid'); input.removeAttribute('aria-describedby'); }
+}
+
+$('#crew-list').addEventListener('input', (event) => {
+  const input = event.target.closest('[data-name]');
+  if (!input) return;
+  const clash = nameClash(input.value, input.dataset.name);
+  const wasClash = input.getAttribute('aria-invalid') === 'true';
+  const message = clash ? `Boat ${boatNumber(groups.indexOf(clash))} already sails as “${clash.name}”. Pick another name.` : '';
+  flagName(input, message);
+  if (clash && !wasClash) announce(message);
+});
+
 $('#crew-list').addEventListener('click', (event) => {
   const remove = event.target.closest('[data-remove]');
   if (!remove || phase !== 'idle' || groups.length <= MIN_GROUPS) return;
+  const before = snapshot();
   const index = groups.findIndex(group => group.id === remove.dataset.remove);
   const [removed] = groups.splice(index, 1);
   persist(); renderCrew();
   $(`[data-name="${CSS.escape(groups[Math.min(index, groups.length - 1)].id)}"]`).focus();
-  announce(`${removed.name} removed. ${groups.length} boats on board.`);
+  const label = boatLabel(index, removed.name);
+  toast(`${label} removed.`, { before, done: `${label} is back at the dock.`, refocus: () => $(`[data-name="${CSS.escape(removed.id)}"]`) });
 });
 
 // Presented is one action from either place: a boat's name tag on the board, or its tick box in Options.
@@ -210,8 +296,10 @@ $('#add-group').addEventListener('click', () => {
 
 $('#reset-presented').addEventListener('click', () => {
   if (phase !== 'idle') return;
+  const before = snapshot();
   groups.forEach(group => { group.excluded = false; });
-  persist(); renderCrew(); toast('Everyone’s back on board.');
+  persist(); renderCrew();
+  toast('Everyone’s back on board.', { before, done: 'Presented list restored.', refocus: () => $('#reset-presented') });
 });
 
 function startRound() {
@@ -219,6 +307,8 @@ function startRound() {
   // Commit an edited name before taking a snapshot of the participating crew.
   document.activeElement?.blur();
   $('#game-options').open = false;
+  // A round changes who can be undone; the offer ends with the cast.
+  if (undoStep) dismissToast();
   let round;
   try { round = createExpedition(groups, undefined, ocean.width || $('#ocean').clientWidth); }
   catch { toast('No bites this time. Try casting again.'); return; }
@@ -289,7 +379,9 @@ function showResults(previous = false) {
   $('#result-heading').innerHTML = `<p class="eyebrow">${previous ? 'The last catch' : 'The catch is in'}</p><div class="winner-stage"><div class="winner-art">${fishArt(winner.fishColor, { red: true, detail: true })}</div><div class="winner-copy"><span class="next-presenter-tag">${icon('fish', 18)} Next to present <b class="verdict-number">${rowNumber(winner.id, lastCatch.indexOf(winner))}</b></span><h2 style="--word-em:${Math.max(3, ...winner.name.split(/\s+/).map(nameEm))};--name-em:${Math.max(3, nameEm(winner.name))}">${escapeHtml(winner.name)}</h2><p>At <strong>${formatLength(winner.length)} cm</strong>, the smallest catch takes the floor.</p></div></div>`;
   // Every row prints alike; the winner's second fish is its red proof, held back until the stamp.
   $('#catch-comparison').style.setProperty('--rows', lastCatch.length);
-  $('#catch-comparison').innerHTML = `<div class="comparison-heading"><span>The day’s haul</span><span>Fish length</span></div>${lastCatch.map((fish, i) => `<div class="catch-row ${fish.id === winner.id ? 'winning-catch' : ''}" style="--i:${i};--scale:${fish.length / largest}"><div class="catch-group"><span class="catch-number">${rowNumber(fish.id, i)}</span><span>${escapeHtml(fish.name)}</span></div><div class="fish-comparison-track"><div class="comparison-fish">${fishArt(fish.fishColor)}${fish.id === winner.id ? fishArt(fish.fishColor, { red: true }) : ''}</div>${fish.id === winner.id ? '<span class="smallest-badge">SMALLEST</span>' : ''}</div><span class="fish-length">${formatLength(fish.length)} <small>cm</small></span></div>`).join('')}<div class="comparison-scale"><span>0</span><span>Lengths drawn to scale</span><span>${formatLength(largest)} cm</span></div>`;
+  // A table to assistive tech (roles, so the grid layout can't strip the semantics): each row is
+  // headed by its boat, then the to-scale catch and its length. The ruler's key is visual only.
+  $('#catch-comparison').innerHTML = `<div class="comparison-heading" role="row"><span role="columnheader">The day’s haul</span><span class="sr-only" role="columnheader">Catch drawn to scale</span><span role="columnheader">Fish length</span></div>${lastCatch.map((fish, i) => `<div class="catch-row ${fish.id === winner.id ? 'winning-catch' : ''}" role="row" style="--i:${i};--scale:${fish.length / largest}"><div class="catch-group" role="rowheader"><span class="catch-number">${rowNumber(fish.id, i)}</span><span>${escapeHtml(fish.name)}</span></div><div class="fish-comparison-track" role="cell"><div class="comparison-fish">${fishArt(fish.fishColor)}${fish.id === winner.id ? fishArt(fish.fishColor, { red: true }) : ''}</div>${fish.id === winner.id ? '<span class="smallest-badge">SMALLEST</span>' : ''}</div><span class="fish-length" role="cell">${formatLength(fish.length)} <small>cm</small></span></div>`).join('')}<div class="comparison-scale" aria-hidden="true"><span>0</span><span>Lengths drawn to scale</span><span>${formatLength(largest)} cm</span></div>`;
   const group = groups.find(group => group.id === winner.id);
   $('#mark-presented').disabled = !group || group.excluded;
   $('#mark-presented').innerHTML = `${bolt()}<span class="label">${group?.excluded ? 'Already marked presented' : 'Mark presented & return'}</span>${icon('check', 22)}`;
@@ -297,16 +389,47 @@ function showResults(previous = false) {
   const staged = !previous && !ocean.reducedMotion.matches;
   dialog.classList.toggle('is-revealing', staged);
   $('#results-status').textContent = '';
+  verdictIn = !staged;
+  pendingVerdict = null;
   dialog.showModal();
   placeStamp();
-  const verdict = () => {
-    $('#results-status').textContent = `${previous ? 'Last round: ' : ''}Boat ${rowNumber(winner.id, lastCatch.indexOf(winner))}, ${winner.name}, presents next with the smallest fish at ${formatLength(winner.length)} centimetres.`;
-    if (!previous) playTone('finish');
+  const line = `${previous ? 'Last round: ' : ''}Boat ${rowNumber(winner.id, lastCatch.indexOf(winner))}, ${winner.name}, presents next with the smallest fish at ${formatLength(winner.length)} centimetres.`;
+  // The verdict is spoken just after focus lands on Mark presented, so announcing the
+  // focused button never cuts the verdict short.
+  const land = (sound) => {
+    focusResultAction();
+    setTimeout(() => {
+      $('#results-status').textContent = line;
+      if (sound) playTone('finish');
+    }, 150);
   };
-  if (staged) $('.result-heading h2').addEventListener('animationstart', (event) => { if (event.animationName === 'shout') verdict(); });
-  else setTimeout(verdict, 150);
+  if (staged) {
+    // While the evidence prints, focus rests on the page itself: an early Enter neither
+    // dismisses the reveal nor marks a winner the room hasn't seen.
+    dialog.focus({ preventScroll: true });
+    $('.result-heading h2').addEventListener('animationstart', (event) => {
+      if (event.animationName === 'shout') { verdictIn = true; playTone('finish'); }
+    });
+    pendingVerdict = () => land(false);
+  } else land(!previous);
 }
 
+// Focus moves to the way on: Mark presented, or back to the boats when the winner is already marked.
+// A staged reveal hands it over only if the TA hasn't moved focus themselves.
+function focusResultAction() {
+  const dialog = $('#results-dialog');
+  if (dialog.classList.contains('is-revealing') && ![dialog, document.body].includes(document.activeElement)) return;
+  const mark = $('#mark-presented');
+  (mark.disabled ? $('#results-back') : mark).focus({ preventScroll: true });
+}
+
+// The actions print last (see "Evidence first" in style.css); that is when focus and the verdict land.
+$('.results-actions').addEventListener('animationstart', (event) => {
+  if (event.target !== event.currentTarget || !pendingVerdict) return;
+  const land = pendingVerdict;
+  pendingVerdict = null;
+  land();
+});
 // The last beat prints the footnote; the finished page is the same styles without the staging.
 $('.results-footnote').addEventListener('animationend', () => $('#results-dialog').classList.remove('is-revealing'));
 
@@ -331,15 +454,18 @@ function placeStamp() {
 }
 new ResizeObserver(placeStamp).observe($('#catch-comparison'));
 
-$('#mark-presented').addEventListener('click', () => {
-  if (!lastCatch) return;
+function markPresented() {
+  if (!lastCatch || !verdictIn || $('#mark-presented').disabled) return;
   const winner = smallestCatch(lastCatch);
   const index = groups.findIndex(group => group.id === winner.id), group = groups[index];
+  const before = snapshot();
   if (group) { group.excluded = true; persist(); renderCrew(); }
   $('#results-dialog').close();
   // The band already counts the boats still to cast; the toast says only who was marked.
-  toast(`${group ? boatLabel(index, group.name) : winner.name} marked presented.`);
-});
+  const label = group ? boatLabel(index, group.name) : winner.name;
+  toast(`${label} marked presented.`, group && { before, done: `${label} is back on board.`, refocus: () => $('#cast-button') });
+}
+$('#mark-presented').addEventListener('click', markPresented);
 
 $('#cast-button').addEventListener('click', startRound);
 $('#pause-button').addEventListener('click', togglePause);
@@ -348,9 +474,10 @@ $('#skip-button').addEventListener('click', finishRound);
 // behind the dialog, and so closing the dialog hands focus back to the Options tag.
 $('#last-catch-button').addEventListener('click', () => { closeOptions(); showResults(true); });
 $('#how-to').addEventListener('click', () => {
-  if (phase === 'fishing' && !ocean.paused) { togglePause(); $('#help-dialog').dataset.resume = 'true'; }
   closeOptions();
   $('#help-dialog').showModal();
+  // Paused after opening, so "Fishing paused." is spoken from inside the guide.
+  if (phase === 'fishing' && !ocean.paused) { togglePause(); $('#help-dialog').dataset.resume = 'true'; }
 });
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', (event) => {
@@ -363,6 +490,8 @@ $('#help-dialog').addEventListener('close', () => {
   if ($('#help-dialog').dataset.resume === 'true') { if (phase === 'fishing' && ocean.paused) togglePause(); delete $('#help-dialog').dataset.resume; }
 });
 $('#results-dialog').addEventListener('close', () => {
+  pendingVerdict = null;
+  verdictIn = false;
   if (!resultIsPrevious) $('#cast-button').focus({ preventScroll: true });
 });
 
@@ -410,18 +539,57 @@ function closeOptions() {
 document.addEventListener('click', (event) => {
   const options = $('#game-options');
   // Crew edits can replace the clicked row before this event reaches the document.
-  const insidePanel = event.composedPath().some(node => node === options || node instanceof HTMLDialogElement);
+  // Undo in the toast belongs to the panel's edits, so reaching for it keeps Options open.
+  const insidePanel = event.composedPath().some(node => node === options || node === $('#toast') || node instanceof HTMLDialogElement);
   if (options.open && !insidePanel) closeOptions();
 });
+// A message about a name belongs to the open panel.
+$('#game-options').addEventListener('toggle', () => { if (!$('#game-options').open) $('#crew-error').hidden = true; });
 
+const isTextField = (el) => el instanceof Element && el.matches('textarea, [contenteditable]:not([contenteditable="false"]), input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"], [type="file"])');
+
+// The TA's keys. Space belongs to the game everywhere but a name field, so focus the room can't
+// see (the Options tag after Esc, a name tag or tick box after a click) never turns a cast into
+// a control opening on the projector. Enter presses what's focused, and ticks a Presented box.
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && $('#game-options').open && !document.querySelector('dialog[open]')) {
+  const openDialog = $('dialog[open]');
+  const typing = isTextField(event.target);
+  // Autofill can send keydowns without a key.
+  const key = (event.key || '').toLowerCase();
+  if (event.key === 'Escape' && $('#game-options').open && !openDialog) {
     closeOptions();
     return;
   }
-  if (event.code !== 'Space' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || document.querySelector('dialog[open]') || event.target.closest('input, button, summary, a, textarea, select, [contenteditable]')) return;
-  event.preventDefault();
-  if (phase === 'idle') startRound(); else togglePause();
+  // A held key never fires a control twice in front of the room.
+  if (event.repeat && !typing && (event.code === 'Space' || event.key === 'Enter')) { event.preventDefault(); return; }
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === 'z') {
+    if (!typing && !openDialog && undoStep) { event.preventDefault(); runUndo(); }
+    return;
+  }
+  if (event.altKey || event.ctrlKey || event.metaKey || typing) return;
+  if (openDialog) {
+    // In the results, Enter marks the winner presented unless another control has focus.
+    if (openDialog.id === 'results-dialog' && event.key === 'Enter' && !event.target.closest('button, a, input, select, summary')) {
+      event.preventDefault();
+      markPresented();
+    }
+    return;
+  }
+  if (event.code === 'Space') {
+    event.preventDefault();
+    spaceTaken = true;
+    if (phase === 'idle') startRound(); else togglePause();
+  } else if (event.key === 'Enter' && event.target.matches('input[type="checkbox"]')) {
+    event.preventDefault();
+    event.target.click();
+  } else if (key === 'r' && phase === 'fishing') {
+    event.preventDefault();
+    finishRound();
+  }
+});
+// The Space that cast or paused must not also press whatever holds focus when it comes up.
+document.addEventListener('keyup', (event) => {
+  if (event.code === 'Space' && spaceTaken) { spaceTaken = false; event.preventDefault(); }
 });
 
 renderCrew();

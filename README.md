@@ -39,7 +39,7 @@ Deploy `dist/` to any static web host. No server, accounts, API keys, external a
 - Mark that group presented, then cast again for the next presentation.
 - One remaining boat is supported. Once everyone is excluded, **Options → Reset crew** unchecks all boxes without removing or renaming boats.
 - Group names, exclusions, and the latest catch are saved in this browser. **Options → View last catch** reopens the saved result. A private-browsing session may not preserve them.
-- Optional sound, fullscreen, and help controls are in **Options**. Space casts or pauses when focus is outside a control; Escape dismisses dialogs or collapses the options panel. Reduced-motion preferences skip directly to the catch comparison.
+- Optional sound, fullscreen, and help controls are in **Options**. Space casts or pauses from anywhere but a name field, R reveals the catch, Enter marks the winner presented from the results, Ctrl/⌘+Z undoes a reset, removal or mark, and Escape dismisses dialogs or collapses the options panel. The same keys are listed in **How to play**. Reduced-motion preferences skip directly to the catch comparison.
 
 ## Fairness
 
