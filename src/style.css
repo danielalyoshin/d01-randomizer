@@ -154,17 +154,32 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .ocean-viewport { grid-area: 1 / 1; min-height: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--ink) var(--stock-2); }
 .ocean-world { position: relative; width: 100%; height: 100%; overflow: hidden; }
 #ocean { display: block; width: 100%; height: 100%; }
-.boat-labels { position: absolute; top: 84px; left: 0; right: 0; z-index: 2; }
-.boat-label { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 3px; width: min(118px, calc(100% / var(--boats, 8) - 6px)); transform: translateX(-50%); }
-.boat-name { display: block; max-width: 100%; padding: 5px 8px 4px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1 var(--display); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Name tags. One lane per boat, as on the canvas: the tag carries the boat's number and name,
+   grows to fill its lane and wraps to a second line when the name needs it. The tags sit on a
+   shared baseline so their Presented tabs line up, and the dock drops to clear the tallest. */
+.boat-labels { position: absolute; top: 84px; left: 0; right: 0; z-index: 2; display: grid; grid-template-columns: repeat(var(--boats, 8), minmax(0, 1fr)); grid-template-rows: auto auto; column-gap: 4px; row-gap: 3px; padding: 0 2px; }
+.boat-label { grid-row: span 2; display: grid; grid-template-rows: subgrid; justify-items: center; min-width: 0; }
+/* The frame is a border, not padding, so the two-line clamp cuts cleanly at the text's edge. */
+.boat-tag { --tag: var(--ink); align-self: end; max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; border: solid var(--tag); border-width: 5px 7px 4px; background: var(--tag); color: var(--stock); font: 800 var(--t-title)/1 var(--display); letter-spacing: .01em; text-transform: uppercase; transition: background-color .12s, border-color .12s; }
+/* The number rides at the head of the name as a small paper plate, like the hull it came from. */
+.boat-tag-number { margin-right: 1px; padding: 0 3px; background: var(--stock); color: var(--ink); font-weight: 900; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+/* Red while this boat fights a fish, with its pennant and hook plate (cream on red holds 4.3:1 at this size). */
+.boat-label.is-fighting .boat-tag { --tag: var(--red); }
 .presented-label { display: inline-flex; align-items: center; gap: 5px; min-height: 22px; padding: 2px 6px 2px 4px; background: var(--stock); color: var(--ink); font: 800 var(--t-label)/1 var(--display); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
 .presented-label input { appearance: none; display: grid; place-items: center; width: 16px; height: 16px; margin: 0; border: 2px solid var(--ink); background: var(--stock); cursor: pointer; }
 .presented-label input:checked { background: var(--red) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 2l8 8M10 2l-8 8' stroke='%23111' stroke-width='2.4'/%3E%3C/svg%3E") center / 10px no-repeat; }
 .presented-label input:focus-visible { outline-offset: 2px; }
-.boat-label.excluded .boat-name { background: var(--stock); color: var(--ink-3); box-shadow: inset 0 0 0 2px var(--ink-3); text-decoration: line-through 2px; }
+.boat-label.excluded .boat-tag { --tag: var(--stock); color: var(--ink-3); outline: 2px solid var(--ink-3); outline-offset: -2px; }
+.boat-label.excluded .boat-tag-number { background: var(--ink-3); color: var(--stock); }
+.boat-label.excluded .boat-name { text-decoration: line-through 2px; }
 .is-fishing .boat-labels { pointer-events: none; }
-/* Hauling home: the Presented tabs step aside so the hoisted catches hang in clear paper. */
-.is-hauling .presented-label { visibility: hidden; }
+/* The dock strip. Once the camera dives, the tags stay pinned where they are, so the room keeps
+   every number and name while the boats slip out of view. The Presented tabs fold away and a
+   rail joins the tags; the lines run up behind it to their boats. Hauling home, the tabs stay
+   folded so the hoisted catches hang in clear paper. */
+.boat-labels::before { content: ''; grid-column: 1 / -1; grid-row: 1; align-self: end; height: 3px; margin: 0 -2px; background: var(--ink); opacity: 0; transition: opacity .2s; }
+.is-diving .boat-labels::before { opacity: 1; }
+:is(.is-diving, .is-hauling) .presented-label { visibility: hidden; }
 
 /* LINES IN! — the cast slams onto the page at full weight, then flies off. */
 .cast-callout { display: none; position: absolute; z-index: 3; top: 40%; left: 50%; width: max-content; max-width: 92%; text-align: center; pointer-events: none; transform: translate(-50%, -50%) rotate(-15deg); }
@@ -185,11 +200,12 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .gauge-value small { margin-left: 2px; font-size: var(--t-ui); font-weight: 800; }
 #depth-label { font: 800 var(--t-ui)/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
 .is-fishing #depth-label { color: var(--red); }
-.catch-feed { min-width: 250px; max-width: 380px; padding: 11px 14px 12px 36px; background: var(--bolt) 9px 11px / 17px 17px no-repeat, var(--bolt) 9px calc(100% - 11px) / 17px 17px no-repeat, var(--ink); color: var(--stock); clip-path: polygon(0 0, 100% 0, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
+.catch-feed { min-width: 250px; max-width: 440px; padding: 11px 14px 12px 36px; background: var(--bolt) 9px 11px / 17px 17px no-repeat, var(--bolt) 9px calc(100% - 11px) / 17px 17px no-repeat, var(--ink); color: var(--stock); clip-path: polygon(0 0, 100% 0, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
 .catch-feed-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-bottom: 5px; }
 .catch-feed-label { font: 800 var(--t-ui)/1 var(--display); letter-spacing: .1em; color: var(--red); text-transform: uppercase; }
 .catch-feed-count { font: 900 var(--t-title)/1 var(--display); letter-spacing: .04em; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.catch-feed strong { display: block; font: 800 var(--t-title)/1 var(--display); text-transform: uppercase; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The latest catch, number and name, on up to two lines. */
+.catch-feed strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font: 800 var(--t-title)/.98 var(--display); text-transform: uppercase; letter-spacing: .01em; }
 .catch-feed::after { content: ''; display: block; height: 9px; margin-top: 9px; background: linear-gradient(90deg, var(--red) var(--catch-progress, 0%), #f2ede22e 0); -webkit-mask: repeating-linear-gradient(90deg, var(--ink) 0 11px, transparent 11px 14px); mask: repeating-linear-gradient(90deg, var(--ink) 0 11px, transparent 11px 14px); }
 
 .boat-scroll-hint { grid-row: 2; display: none; justify-content: center; align-items: center; gap: 14px; padding: 8px 12px 7px; background: var(--stock-2); border-top: 2px solid var(--ink); font: 800 var(--t-label)/1 var(--display); letter-spacing: .14em; text-transform: uppercase; }
@@ -239,7 +255,8 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .fairness-note svg { flex-shrink: 0; color: var(--red); }
 .fairness-note p { margin: 0; font-size: var(--t-body); line-height: 1.5; }
 .fairness-note strong { display: block; margin-bottom: 3px; color: var(--ink); font: 800 var(--t-title)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
-.help-footnote { margin: 14px 0 18px; font-size: var(--t-label); line-height: 1.6; color: var(--ink-3); }
+/* Fine print keeps a short measure: about 60 characters a line. */
+.help-footnote { max-width: 48ch; margin: 14px 0 18px; font-size: var(--t-label); line-height: 1.6; color: var(--ink-3); text-wrap: pretty; }
 
 /* The reveal. Portrait and small screens get a bound page that scrolls; landscape screens
    get a full-screen spread (see the orientation query below) that never needs to.
@@ -253,6 +270,8 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .winner-copy { min-width: 0; }
 .next-presenter-tag { display: inline-flex; align-items: center; gap: 8px; color: var(--red); font: 900 var(--t-headline)/.9 var(--display); letter-spacing: .04em; text-transform: uppercase; text-shadow: 2px 2px 0 var(--ink); rotate: -6deg; transform-origin: left bottom; }
 .next-presenter-tag svg { filter: drop-shadow(2px 2px 0 var(--ink)); }
+/* The winner's boat number, printed as the same plate the haul's rows carry. */
+.verdict-number { margin-left: 2px; padding: .1em .14em .02em; background: var(--ink); color: var(--stock); text-shadow: none; font-variant-numeric: tabular-nums; box-shadow: 3px 3px 0 var(--red); }
 /* The verdict tilts about its left middle, so a name set on two or three lines never swings into the spine. */
 .result-heading h2 { margin: 6px 0 12px; font-size: var(--t-display); overflow-wrap: anywhere; rotate: -6deg; transform-origin: left center; }
 .winner-copy p { margin: 0; font-size: var(--t-body); line-height: 1.35; color: var(--ink-2); }
@@ -444,7 +463,7 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .game-card { height: 100dvh; min-height: 440px; border: 0; }
   .scene-head { top: 12px; left: 14px; }
   .scene-status { display: none; }
-  .boat-name { font-size: var(--t-ui); }
+  .boat-tag { font-size: var(--t-ui); }
   .game-options { top: 12px; right: 12px; }
   .game-options > summary { min-height: 44px; font-size: var(--t-ui); }
   .options-panel { width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 84px); }

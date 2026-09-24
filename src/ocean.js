@@ -3,7 +3,7 @@ import { fishStyle, drawFish } from './fish-art.js';
 
 const TAU = Math.PI * 2;
 const SURFACE = 206;
-const INK = '#111111', STOCK = '#f2ede2', RED = '#d7261e';
+const INK = '#111111', STOCK = '#f2ede2', RED = '#d7261e', FADED = '#625b50';
 const DISPLAY = '"Big Shoulders Variable", "Arial Narrow", Impact, sans-serif';
 // Shouts are chosen by fish id, which is shuffled independently of length, so they never hint at size.
 const SHOUTS = ['BITE!', 'FISH ON!', 'SNAP!', 'WHAM!', 'CHOMP!', 'SPLASH!'];
@@ -15,6 +15,9 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const STRUGGLE = 0.6, HAUL_RUSH = 2.5;
 // Landed catches hang from hoisted rods for this long before the reveal; a rod takes HOIST to lift.
 const DOCK_HOLD = 0.9, HOIST = 0.35;
+// A hooked fish is printed this much larger so the back row can read it, and settles to the
+// dock scale as it comes aboard. Every catch scales alike, so relative size stays true.
+const HOOKED_SCALE = 2, LANDED_SCALE = 1.25, POP = 0.28;
 
 // Where a line drawn by `at(t)` crosses the waterline, if it does.
 function surfaceCrossing(at) {
@@ -31,10 +34,11 @@ function surfaceCrossing(at) {
 }
 
 export class Ocean {
-  constructor(canvas, { onCatch, onLanded, onFinish, onDepth }) {
+  constructor(canvas, { onCatch, onLand, onLanded, onFinish, onDepth }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onCatch = onCatch;
+    this.onLand = onLand;
     this.onLanded = onLanded;
     this.onFinish = onFinish;
     this.onDepth = onDepth;
@@ -46,6 +50,8 @@ export class Ocean {
     this.time = 0;
     this.ambientTime = 0;
     this.camera = 0;
+    this.dockBottom = 0;
+    this.fitted = new Map();
     this.running = false;
     this.paused = false;
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -62,6 +68,17 @@ export class Ocean {
   }
 
   setGroups(groups) { this.groups = groups; }
+
+  // The name tags hang over the dock; the scene drops just far enough that the tallest
+  // tag and its Presented tab clear every pennant. `bottom` is where the tags end.
+  setDock(bottom) {
+    if (bottom === this.dockBottom) return;
+    this.dockBottom = bottom;
+    this.draw();
+  }
+  get drop() { return Math.max(0, Math.round(this.dockBottom + 5 - (SURFACE - 12 - 55 * this.boatScale()))); }
+  // The world y at the top edge of the screen.
+  get top() { return this.camera - this.drop; }
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
@@ -144,7 +161,8 @@ export class Ocean {
         // Loudness follows catch order (the last catch shouts loudest), never fish length.
         const order = this.simulation.hooks.length > 1 ? (this.simulation.catches.length - 1) / (this.simulation.hooks.length - 1) : 1;
         this.bursts.push({ x: fish.x, y: fish.y, time: this.time, lane: fish.lane, loud: lerp(0.8, 1.2, order),
-          word: SHOUTS[fish.fishId % SHOUTS.length], tilt: (fish.lane % 2 ? 1 : -1) * (0.3 + (fish.fishId * 0.618) % 1 * 0.35) });
+          word: SHOUTS[fish.fishId % SHOUTS.length], tilt: (fish.lane % 2 ? 1 : -1) * (0.3 + (fish.fishId * 0.618) % 1 * 0.35),
+          label: `${String(fish.lane + 1).padStart(2, '0')} · ${fish.name}`.toUpperCase() });
         this.spray(fish.x, fish.y, INK, 10);
         this.spray(fish.x, fish.y, RED, 7);
         this.onCatch(fish);
@@ -162,11 +180,12 @@ export class Ocean {
       if (fish.landedAt === undefined && fish.reel >= this.reelDuration(fish)) {
         fish.landedAt = this.time;
         this.spray(this.simulation.width * hook.fraction + 14, 207, INK, 10);
+        this.onLand?.(fish);
       }
     }
     const searching = this.simulation.hooks.filter(hook => !hook.fish);
     const depth = searching.length ? Math.max(...searching.map(hook => hookPosition(hook, this.simulation.time, this.simulation.width).y)) : SURFACE;
-    const target = Math.max(0, depth - Math.max(240, this.height * 0.55));
+    const target = Math.max(0, depth + this.drop - Math.max(240, this.height * 0.55));
     this.camera = lerp(this.camera, target, 1 - Math.exp(-dt * (searching.length ? 2.5 : 3.2)));
     this.onDepth(Math.max(0, (searching.length ? depth - SURFACE : this.camera) / 50));
     for (const particle of this.particles) {
@@ -213,7 +232,7 @@ export class Ocean {
     c.fillRect(0, 0, w, h);
     c.save();
     const shake = this.reducedMotion.matches ? 0 : this.impact * 4.5;
-    c.translate(Math.sin(this.time * 63) * shake, -this.camera + Math.cos(this.time * 51) * shake);
+    c.translate(Math.sin(this.time * 63) * shake, -this.top + Math.cos(this.time * 51) * shake);
     c.lineCap = 'round'; c.lineJoin = 'round';
     this.drawSky(w, t);
     this.drawWater(w, h, t);
@@ -221,18 +240,14 @@ export class Ocean {
     this.drawDepthScale(w, h);
     for (const fish of this.simulation ? [] : this.school) {
       const x = ((fish.x * (w + 100) + t * fish.speed * fish.direction) % (w + 100) + w + 100) % (w + 100) - 50;
-      if (fish.y > this.camera + h + 40 || fish.y < this.camera - 40) continue;
+      if (fish.y > this.top + h + 40 || fish.y < this.top - 40) continue;
       const y = fish.y + Math.sin(t * 1.8 + fish.phase) * 19;
       const phase = t * 2 + fish.phase;
       this.drawFishWake(x, y, fish.size, fish.direction, phase, fish.speed);
       this.drawFish(x, y, fish.size, fish.style, fish.direction, phase);
     }
     this.drawBubbles(w, h, t);
-    for (let i = 0; i < this.groups.length; i++) {
-      c.globalAlpha = this.groups[i].excluded ? 0.28 : 1;
-      this.drawBoat(this.laneX(i), 199 + Math.sin(t * 2 + i) * 4, i, t);
-      c.globalAlpha = 1;
-    }
+    for (let i = 0; i < this.groups.length; i++) this.drawBoat(this.laneX(i), i, t, this.groups[i].excluded);
     if (this.simulation) this.drawFishing();
     else this.drawIdleHooks(t);
     c.restore();
@@ -240,6 +255,8 @@ export class Ocean {
 
   drawSky(w, t) {
     const c = this.ctx;
+    // The sun, clouds and birds hold their place on the page when the dock drops for its tags.
+    c.save(); c.translate(0, -this.drop);
     // A red sun with a misregistered ink ring.
     const sunX = w * 0.75;
     c.fillStyle = RED; c.beginPath(); c.arc(sunX, 66, 33, 0, TAU); c.fill();
@@ -255,6 +272,7 @@ export class Ocean {
       const flap = Math.sin(t * 5 + x * 40) * 2.5;
       c.beginPath(); c.moveTo(w * x - size, y - flap); c.lineTo(w * x, y + 3); c.lineTo(w * x + size, y - flap); c.stroke();
     }
+    c.restore();
     // Engraved headlands.
     const left = new Path2D();
     left.moveTo(0, 150); left.bezierCurveTo(w * 0.07, 136, w * 0.11, 166, w * 0.2, 173);
@@ -267,8 +285,9 @@ export class Ocean {
       c.fillStyle = this.hatch; c.globalAlpha = 0.55; c.fill(hill); c.globalAlpha = 1;
       c.strokeStyle = INK; c.lineWidth = 2.2; c.stroke(hill);
     }
+    // The lighthouse stands between the last two boats when their lanes leave it room.
     const lane = w / Math.max(1, this.groups.length);
-    if (lane - Math.min(118, lane - 6) > 26) this.drawLighthouse(w - lane, 162);
+    if (lane > 144) this.drawLighthouse(w - lane, 162);
   }
 
   drawLighthouse(x, y) {
@@ -288,9 +307,9 @@ export class Ocean {
   // The sea is engraved: broken lines of force with open paper between, thickening with depth.
   drawWater(w, h, t) {
     const c = this.ctx;
-    const bottom = this.camera + h + 12;
+    const bottom = this.top + h + 12;
     const spacing = 24, cell = 216;
-    const firstRow = Math.max(0, Math.floor((this.camera - SURFACE - 20) / spacing));
+    const firstRow = Math.max(0, Math.floor((this.top - SURFACE - 20) / spacing));
     c.strokeStyle = INK;
     for (let row = firstRow; SURFACE + 20 + row * spacing < bottom; row++) {
       const y = SURFACE + 20 + row * spacing;
@@ -327,7 +346,7 @@ export class Ocean {
     c.textAlign = 'right'; c.textBaseline = 'alphabetic';
     for (let metres = 5; metres <= 30; metres += 5) {
       const y = SURFACE + metres * 50;
-      if (y < this.camera - 40 || y > this.camera + h + 10) continue;
+      if (y < this.top - 40 || y > this.top + h + 10) continue;
       c.strokeStyle = INK; c.lineWidth = 2.5;
       c.beginPath(); c.moveTo(w - 78, y); c.lineTo(w, y); c.stroke();
       c.lineWidth = 1.5;
@@ -342,32 +361,43 @@ export class Ocean {
     }
   }
 
-  drawBoat(x, y, index, t) {
-    const c = this.ctx, scale = this.boatScale();
+  // A boat that has presented is moored: printed as an open keyline in faded ink, level and
+  // still, with no wake and no line. It reads plainly at the dock but never as one in play.
+  drawBoat(x, index, t, moored) {
+    const c = this.ctx, scale = this.boatScale(), ink = moored ? FADED : INK;
     const hooked = this.simulation?.hooks.find(hook => hook.lane === index)?.fish;
     const fighting = hooked && hooked.landedAt === undefined;
     const lift = hooked?.landedAt !== undefined ? ease((this.time - hooked.landedAt) / HOIST) : 0;
-    c.save(); c.translate(x, y); c.scale(scale, scale); c.rotate(Math.sin(t * 2 + index) * 0.055 + (fighting ? Math.sin(t * 16) * 0.035 : 0));
+    const y = 199 + (moored ? 2 : Math.sin(t * 2 + index) * 4);
+    c.save(); c.translate(x, y); c.scale(scale, scale);
+    if (!moored) c.rotate(Math.sin(t * 2 + index) * 0.055 + (fighting ? Math.sin(t * 16) * 0.035 : 0));
+    c.strokeStyle = ink;
     // Wake.
-    c.strokeStyle = INK; c.lineWidth = 1.6;
-    c.beginPath(); c.ellipse(-4, 13, 42 + Math.sin(t * 3) * 3, 3, 0, 0.2, Math.PI - 0.2); c.stroke();
-    c.setLineDash([5, 6]); c.beginPath(); c.ellipse(-6, 18, 50, 3, 0, 0.25, Math.PI - 0.25); c.stroke(); c.setLineDash([]);
-    // Mast and pennant: red while this boat fights a fish.
+    if (!moored) {
+      c.lineWidth = 1.6;
+      c.beginPath(); c.ellipse(-4, 13, 42 + Math.sin(t * 3) * 3, 3, 0, 0.2, Math.PI - 0.2); c.stroke();
+      c.setLineDash([5, 6]); c.beginPath(); c.ellipse(-6, 18, 50, 3, 0, 0.25, Math.PI - 0.25); c.stroke(); c.setLineDash([]);
+    }
+    // Mast and pennant: red while this boat fights a fish, struck to an open outline once moored.
     c.lineWidth = 2.6; c.beginPath(); c.moveTo(-4, -30); c.lineTo(-4, -54); c.stroke();
-    c.fillStyle = fighting ? RED : INK;
-    c.beginPath(); c.moveTo(-3, -53); c.quadraticCurveTo(6, -50 + Math.sin(t * 5 + index) * 2, 16, -47); c.lineTo(-3, -40); c.closePath(); c.fill();
-    c.lineWidth = 1.5; c.stroke();
+    c.fillStyle = fighting ? RED : moored ? STOCK : INK;
+    c.beginPath(); c.moveTo(-3, -53); c.quadraticCurveTo(6, -50 + (moored ? 0 : Math.sin(t * 5 + index) * 2), 16, -47); c.lineTo(-3, -40); c.closePath(); c.fill();
+    c.lineWidth = moored ? 2 : 1.5; c.stroke();
     // Cabin.
     c.fillStyle = STOCK; c.lineWidth = 2.2;
     c.fillRect(-17, -28, 27, 22); c.strokeRect(-17, -28, 27, 22);
-    c.fillStyle = INK; c.fillRect(-12, -23, 7, 8); c.fillRect(0, -23, 6, 8); c.fillRect(-21, -32, 35, 5);
-    // Hull, printed solid with its wood-type number.
-    c.beginPath(); c.moveTo(-38, -8); c.lineTo(38, -8); c.lineTo(28, 8); c.quadraticCurveTo(1, 17, -26, 9); c.closePath(); c.fill();
-    c.strokeStyle = STOCK; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-33, -4.5); c.lineTo(-14, -4.5); c.moveTo(20, -4.5); c.lineTo(33, -4.5); c.stroke();
-    c.fillStyle = STOCK; c.font = `900 15px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = ink; c.fillRect(-12, -23, 7, 8); c.fillRect(0, -23, 6, 8); c.fillRect(-21, -32, 35, 5);
+    // Hull with its wood-type number: solid ink, or a keyline around paper once moored.
+    c.beginPath(); c.moveTo(-38, -8); c.lineTo(38, -8); c.lineTo(28, 8); c.quadraticCurveTo(1, 17, -26, 9); c.closePath();
+    if (moored) { c.fillStyle = STOCK; c.fill(); c.lineWidth = 2.6; c.stroke(); }
+    else {
+      c.fill();
+      c.strokeStyle = STOCK; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-33, -4.5); c.lineTo(-14, -4.5); c.moveTo(20, -4.5); c.lineTo(33, -4.5); c.stroke();
+    }
+    c.fillStyle = moored ? FADED : STOCK; c.font = `900 15px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(String(index + 1).padStart(2, '0'), 3, 1.5);
     // Rod bends out over the right side, or stands up to hoist a landed catch.
-    c.strokeStyle = INK; c.lineWidth = 2.2;
+    c.strokeStyle = ink; c.lineWidth = 2.2;
     c.beginPath(); c.moveTo(17, -10); c.quadraticCurveTo(lerp(39, 24, lift), fighting ? -32 : lerp(-53, -76, lift), lerp(47, 56, lift), lerp(-22, -66, lift)); c.stroke();
     c.fillStyle = STOCK; c.beginPath(); c.arc(20, -14, 3.6, 0, TAU); c.fill(); c.lineWidth = 1.8; c.stroke();
     c.restore();
@@ -441,7 +471,7 @@ export class Ocean {
     for (const fish of simulation.fish) {
       if (fish.caught) continue;
       const position = swimmerPosition(fish, simulation.time, simulation.width);
-      if (position.y < this.camera - 45 || position.y > this.camera + this.height + 45) continue;
+      if (position.y < this.top - 45 || position.y > this.top + this.height + 45) continue;
       const size = this.fishSize(fish), x = this.screenX(position.x);
       const bodyX = x - position.direction * size * 0.62;
       const phase = this.ambientTime * 2.5 + fish.phase;
@@ -492,7 +522,11 @@ export class Ocean {
       }
       this.drawHook(x, y, !!fish);
       if (fish) {
-        const size = this.fishSize(fish);
+        // The catch pops up to twice its swimming size (overshooting once, like the slammed
+        // type), holds there through the fight, and settles to the dock scale as it comes aboard.
+        const pop = Math.min(1, fish.reel / POP), settle = clamp((reelProgress - 0.55) / 0.45, 0, 1);
+        const grow = 1 + (lerp(HOOKED_SCALE, LANDED_SCALE, settle * settle * (3 - 2 * settle)) - 1) * ease(pop) * (1 + 0.14 * Math.sin(pop * Math.PI));
+        const size = this.fishSize(fish) * grow;
         c.save(); c.translate(x, y); c.rotate(struggle * 0.24);
         this.drawFish(-fish.direction * size * 0.62, 0, size, fishStyle(fish.fishColor), fish.direction, this.ambientTime * 5, true);
         c.restore();
@@ -517,7 +551,7 @@ export class Ocean {
   // alike, in plain ink, so the dock shows the evidence without marking any of it.
   drawLanded(fish) {
     const c = this.ctx, age = this.time - fish.landedAt, lift = ease(age / HOIST);
-    const tip = this.rodTip(fish.lane, lift, false), size = this.fishSize(fish);
+    const tip = this.rodTip(fish.lane, lift, false), size = this.fishSize(fish) * LANDED_SCALE;
     const x = lerp(this.laneX(fish.lane) + 35 * this.boatScale(), tip.x, lift);
     const y = lerp(176, tip.y + 13, lift);
     const hang = -fish.direction * Math.PI / 2;
@@ -529,7 +563,25 @@ export class Ocean {
     c.restore();
   }
 
-  // Each catch: a printed shockwave, radiating lines of force, and a slammed shout.
+  // Text cut to fit `max` pixels in the current font, ending in an ellipsis when it had to be cut.
+  // The cut falls between words unless that would throw away more than a third of the room.
+  fit(text, max) {
+    const c = this.ctx, key = `${c.font}|${max}|${text}`;
+    if (!this.fitted.has(key)) {
+      let cut = text;
+      if (c.measureText(cut).width > max) {
+        while (cut.length > 1 && c.measureText(`${cut}…`).width > max) cut = cut.slice(0, -1);
+        const space = cut.lastIndexOf(' ');
+        if (space > cut.length * 0.66) cut = cut.slice(0, space);
+        cut = `${cut.replace(/[\s·]+$/, '')}…`;
+      }
+      this.fitted.set(key, cut);
+    }
+    return this.fitted.get(key);
+  }
+
+  // Each catch: a printed shockwave, radiating lines of force, and a slammed shout carrying
+  // the boat's number and name on a black tag above the word, so the room reads whose catch it is.
   drawBurst(burst) {
     const c = this.ctx;
     const age = this.time - burst.time, x = this.screenX(burst.x);
@@ -558,6 +610,13 @@ export class Ocean {
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillStyle = INK; c.fillText(burst.word, px * 0.07, px * 0.07);
     c.fillStyle = RED; c.fillText(burst.word, 0, 0);
+    // The tag stays within the margin the shout is clamped to, so it never runs off the board.
+    const k = clamp(Math.round(px * 0.34), 22, 30);
+    c.font = `800 ${k}px ${DISPLAY}`;
+    const label = this.fit(burst.label, px * 3.6 - k * 0.7), width = c.measureText(label).width + k * 0.7;
+    const top = -px * 0.42 - k * 1.5;
+    c.fillStyle = INK; c.fillRect(-width / 2, top, width, k * 1.28);
+    c.fillStyle = STOCK; c.fillText(label, 0, top + k * 0.7);
     c.restore();
   }
 
@@ -578,7 +637,7 @@ export class Ocean {
     c.strokeStyle = INK; c.lineWidth = 1.3; c.fillStyle = STOCK;
     for (let i = 0; i < 20; i++) {
       const y = 250 + ((i * 59 - t * (18 + i % 4 * 7) + 1800) % 1500);
-      if (y < this.camera || y > this.camera + h) continue;
+      if (y < this.top || y > this.top + h) continue;
       const x = (i * 131.3 % w) + Math.sin(t * 0.6 + i) * 8;
       c.beginPath(); c.arc(x, y, 1.8 + i % 3, 0, TAU); c.fill(); c.stroke();
     }
@@ -586,8 +645,8 @@ export class Ocean {
 
   drawLandscape(w, t) {
     const c = this.ctx;
-    for (const base of [this.height + 18, 1120, 1620]) {
-      if (base < this.camera - 20 || base - 150 > this.camera + this.height) continue;
+    for (const base of [this.height + 18 - this.drop, 1120, 1620]) {
+      if (base < this.top - 20 || base - 150 > this.top + this.height) continue;
       const bed = new Path2D();
       bed.moveTo(0, base - 25); bed.bezierCurveTo(w * 0.25, base - 105, w * 0.35, base + 20, w * 0.65, base - 40);
       bed.quadraticCurveTo(w * 0.9, base - 90, w, base - 50); bed.lineTo(w, base + 80); bed.lineTo(0, base + 80); bed.closePath();

@@ -37,6 +37,10 @@ test('a full expedition catches every fish, follows hooks down, and resumes afte
   await page.goto('/');
   await page.getByRole('button', { name: 'Cast the lines' }).click();
   await expect.poll(async () => parseFloat(await page.locator('#depth').textContent())).toBeGreaterThan(2);
+  // The name tags stay pinned as the dock strip while the camera dives.
+  await expect(page.locator('.boat-tag').first()).toBeInViewport();
+  await expect(page.locator('.boat-tag').first()).toHaveText('01 Group 01');
+  await expect(page.locator('#catch-feed-title')).toHaveText(/^\d\d\u00a0·\u00a0Group \d\d$/, { timeout: 20000 });
   await page.getByRole('button', { name: 'Pause fishing' }).click();
   const pausedDepth = await page.locator('#depth').textContent();
   await page.waitForTimeout(400);
@@ -58,7 +62,7 @@ test('one remaining boat can catch a fish; all presented disables casting; reset
   await page.getByRole('button', { name: 'Mark presented & return' }).click();
   await expect(page.getByRole('button', { name: 'Cast the lines' })).toBeDisabled();
   await page.locator('#options-toggle').click();
-  await page.getByRole('button', { name: 'Reset crew', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset presented', exact: true }).click();
   await expect(page.locator('#ready-count')).toHaveText('8');
   await expect(page.getByRole('button', { name: 'Cast the lines' })).toBeEnabled();
 });
@@ -81,8 +85,8 @@ test('group editing, limits, reduced motion, and saved results work without HTML
   await expect(page.getByRole('textbox', { name: 'Name for boat 2', exact: true })).toBeFocused();
   await expect(page.locator('.boat-name').first()).toHaveText(name);
   await expect(page.locator('.boat-name b')).toHaveCount(0);
-  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a group' }).click();
-  await expect(page.getByRole('button', { name: 'Add a group' })).toBeDisabled();
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a boat' }).click();
+  await expect(page.getByRole('button', { name: 'Add a boat' })).toBeDisabled();
   await expect(page.locator('[data-exclude]')).toHaveCount(12);
   await page.getByRole('button', { name: 'Cast the lines' }).click();
   await expect(page.locator('#crew-list')).toBeHidden();
@@ -140,7 +144,7 @@ test('the reveal fits every row on common projector screens and Options folds aw
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator('#options-toggle').click();
-  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a group' }).click();
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a boat' }).click();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Cast the lines' }).click();
   await expect(page.locator('.catch-row')).toHaveCount(12);

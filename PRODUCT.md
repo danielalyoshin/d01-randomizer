@@ -29,7 +29,7 @@ Not a spinner wheel or name-picker. The randomness is dramatized as a fishing de
 ## Capabilities and Constraints
 
 - 2–12 groups (default 8), renameable (max 32 chars), each with a fixed boat color from a 12-color set.
-- "Presented" checkbox per boat; Reset crew clears all; one remaining boat is supported.
+- "Presented" checkbox per boat; Reset presented clears all; one remaining boat is supported.
 - Pause/resume, Reveal catch (instant, same result), View last catch, optional sound, fullscreen, How to play.
 - Keyboard: Space casts or pauses outside controls; Escape closes dialogs/options.
 - Reduced motion skips straight to the comparison.
