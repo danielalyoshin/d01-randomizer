@@ -3,6 +3,12 @@ import { fishStyle, drawFish } from './fish-art.js';
 
 const TAU = Math.PI * 2;
 const SURFACE = 206;
+// The seabed is the floor of the world. It lies below the deepest swimmer and hook (no fish
+// swims below about 1000), so the dive ends on it and nothing swims beneath it; the camera
+// looks no further than SEABED_VIEW past its base.
+const SEABED = 1120, SEABED_VIEW = 40;
+// A hull's keel rides just under the waterline band, whatever the boat's scale.
+const KEEL = 217;
 const INK = '#111111', STOCK = '#f2ede2', RED = '#d7261e', FADED = '#625b50';
 const DISPLAY = '"Big Shoulders Variable", "Arial Narrow", Impact, sans-serif';
 // Shouts are chosen by fish id, which is shuffled independently of length, so they never hint at size.
@@ -56,7 +62,7 @@ export class Ocean {
     this.paused = false;
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     this.school = Array.from({ length: 22 }, (_, i) => ({
-      x: Math.random(), y: 325 + (i + Math.random()) / 22 * 850,
+      x: Math.random(), y: 325 + (i + Math.random()) / 22 * 640,
       size: 15 + Math.random() * 22, speed: 65 + Math.random() * 95,
       direction: i % 2 ? 1 : -1, phase: Math.random() * TAU, style: i % 6,
     }));
@@ -76,7 +82,7 @@ export class Ocean {
     this.dockBottom = bottom;
     this.draw();
   }
-  get drop() { return Math.max(0, Math.round(this.dockBottom + 5 - (SURFACE - 12 - 55 * this.boatScale()))); }
+  get drop() { return Math.max(0, Math.round(this.dockBottom + 5 - (this.boatY() - 55 * this.boatScale() - 5))); }
   // The world y at the top edge of the screen.
   get top() { return this.camera - this.drop; }
 
@@ -145,7 +151,12 @@ export class Ocean {
   }
 
   laneX(lane) { return this.width * ((lane + 0.5) / this.groups.length); }
-  boatScale() { return Math.min(1.05, this.width / this.groups.length / 92); }
+  // Boats grow into wide lanes, so a board of two or three boats is carried by its boats
+  // rather than left as open water; eight or more keep the dock scale.
+  boatScale() { const lane = this.width / this.groups.length; return Math.min(lane / 92, clamp(lane / 240, 1.05, 1.8)); }
+  boatY() { return KEEL - 17 * this.boatScale(); }
+  // Where a hooked fish is reeled to, beside the hull.
+  reelY() { return this.boatY() - 23 * this.boatScale(); }
   fishSize(fish) { return 16 + (fish.length - 140) / 820 * 25; }
   screenX(x) { return x * this.width / this.simulation.width; }
 
@@ -185,7 +196,8 @@ export class Ocean {
     }
     const searching = this.simulation.hooks.filter(hook => !hook.fish);
     const depth = searching.length ? Math.max(...searching.map(hook => hookPosition(hook, this.simulation.time, this.simulation.width).y)) : SURFACE;
-    const target = Math.max(0, depth + this.drop - Math.max(240, this.height * 0.55));
+    const floor = SEABED + SEABED_VIEW + this.drop - this.height;
+    const target = clamp(depth + this.drop - Math.max(240, this.height * 0.55), 0, Math.max(0, floor));
     this.camera = lerp(this.camera, target, 1 - Math.exp(-dt * (searching.length ? 2.5 : 3.2)));
     this.onDepth(Math.max(0, (searching.length ? depth - SURFACE : this.camera) / 50));
     for (const particle of this.particles) {
@@ -212,7 +224,7 @@ export class Ocean {
     const t = this.ambientTime, scale = this.boatScale();
     const angle = Math.sin(t * 2 + lane) * 0.055 + (fighting ? Math.sin(t * 16) * 0.035 : 0);
     const x = lerp(47, 56, lift) * scale, y = lerp(-22, -66, lift) * scale;
-    return { x: this.laneX(lane) + x * Math.cos(angle) - y * Math.sin(angle), y: 199 + Math.sin(t * 2 + lane) * 4 + x * Math.sin(angle) + y * Math.cos(angle) };
+    return { x: this.laneX(lane) + x * Math.cos(angle) - y * Math.sin(angle), y: this.boatY() + Math.sin(t * 2 + lane) * 4 + x * Math.sin(angle) + y * Math.cos(angle) };
   }
 
   reelDuration(fish) { return 2.3 + (fish.y - SURFACE) / 310; }
@@ -285,9 +297,12 @@ export class Ocean {
       c.fillStyle = this.hatch; c.globalAlpha = 0.55; c.fill(hill); c.globalAlpha = 1;
       c.strokeStyle = INK; c.lineWidth = 2.2; c.stroke(hill);
     }
-    // The lighthouse stands between the last two boats when their lanes leave it room.
-    const lane = w / Math.max(1, this.groups.length);
-    if (lane > 144) this.drawLighthouse(w - lane, 162);
+    // The lighthouse stands on the right headland: between the last two boats when that gap
+    // is on the headland and leaves it room, otherwise on the headland past the last boat.
+    const count = this.groups.length, lane = w / Math.max(1, count), scale = this.boatScale();
+    const past = this.laneX(count - 1) + 58 * scale;
+    if (count > 1 && w - lane >= w * 0.74 && lane > 137 * scale) this.drawLighthouse(w - lane, 162);
+    else if (w - past > 60) this.drawLighthouse((past + w) / 2, 162);
   }
 
   drawLighthouse(x, y) {
@@ -340,11 +355,11 @@ export class Ocean {
     c.lineTo(w + 6, SURFACE + 9); c.closePath(); c.fill();
   }
 
-  // Depth marks printed in the right margin, every five metres.
+  // Depth marks printed in black ink in the right margin, every five metres down to the seabed.
   drawDepthScale(w, h) {
     const c = this.ctx;
     c.textAlign = 'right'; c.textBaseline = 'alphabetic';
-    for (let metres = 5; metres <= 30; metres += 5) {
+    for (let metres = 5; SURFACE + metres * 50 < SEABED - 60; metres += 5) {
       const y = SURFACE + metres * 50;
       if (y < this.top - 40 || y > this.top + h + 10) continue;
       c.strokeStyle = INK; c.lineWidth = 2.5;
@@ -357,7 +372,6 @@ export class Ocean {
       const label = c.measureText(`${metres} M`).width;
       c.fillStyle = STOCK; c.fillRect(w - label - 20, y - 34, label + 14, 30);
       c.fillStyle = INK; c.fillText(`${metres} M`, w - 12, y - 8);
-      c.fillStyle = RED; c.fillText(`${metres} M`, w - 14, y - 10);
     }
   }
 
@@ -368,7 +382,7 @@ export class Ocean {
     const hooked = this.simulation?.hooks.find(hook => hook.lane === index)?.fish;
     const fighting = hooked && hooked.landedAt === undefined;
     const lift = hooked?.landedAt !== undefined ? ease((this.time - hooked.landedAt) / HOIST) : 0;
-    const y = 199 + (moored ? 2 : Math.sin(t * 2 + index) * 4);
+    const y = this.boatY() + (moored ? 2 : Math.sin(t * 2 + index) * 4);
     c.save(); c.translate(x, y); c.scale(scale, scale);
     if (!moored) c.rotate(Math.sin(t * 2 + index) * 0.055 + (fighting ? Math.sin(t * 16) * 0.035 : 0));
     c.strokeStyle = ink;
@@ -408,7 +422,8 @@ export class Ocean {
     y += dip;
     c.save();
     c.beginPath(); c.arc(x, y, 7, 0, TAU); c.fillStyle = STOCK; c.fill();
-    c.beginPath(); c.arc(x, y, 7, Math.PI, TAU); c.fillStyle = hot ? INK : RED; c.fill();
+    // The cap is ink until the line is hooked; then it turns red with the line.
+    c.beginPath(); c.arc(x, y, 7, Math.PI, TAU); c.fillStyle = hot ? RED : INK; c.fill();
     c.beginPath(); c.arc(x, y, 7, 0, TAU); c.strokeStyle = INK; c.lineWidth = 2.2; c.stroke();
     c.beginPath(); c.moveTo(x, y - 7); c.lineTo(x, y - 13); c.stroke();
     if (dip > 2) {
@@ -428,7 +443,7 @@ export class Ocean {
       const x = this.laneX(i);
       const y = 254 + (i * 37 % 83) - 26 + Math.sin(t * 2 + i) * 7;
       const sway = Math.sin(t * 1.7 + i) * 10;
-      const from = { x: x + 47 * scale, y: 199 - 22 * scale }, control = { x: x + 43 * scale + sway, y: 233 }, to = { x: x + 14 + sway, y };
+      const from = { x: x + 47 * scale, y: this.boatY() - 22 * scale }, control = { x: x + 43 * scale + sway, y: 233 }, to = { x: x + 14 + sway, y };
       c.strokeStyle = INK; c.lineWidth = 2.4;
       c.beginPath(); c.moveTo(from.x, from.y); c.quadraticCurveTo(control.x, control.y, to.x, to.y); c.stroke();
       const bobber = surfaceCrossing(k => ({
@@ -488,7 +503,7 @@ export class Ocean {
         reelProgress = Math.min(1, Math.max(0, elapsed - STRUGGLE) / (this.reelDuration(fish) - STRUGGLE));
         struggle = (1 - reelProgress) * Math.sin(elapsed * 25 + fish.lane);
         x = lerp(this.screenX(fish.x), this.laneX(hook.lane) + 35 * scale, ease(reelProgress)) + struggle * 10;
-        y = lerp(fish.y, 176, ease(reelProgress)) + Math.sin(elapsed * 19) * (1 - reelProgress) * 6;
+        y = lerp(fish.y, this.reelY(), ease(reelProgress)) + Math.sin(elapsed * 19) * (1 - reelProgress) * 6;
       }
       const { x: rodX, y: rodY } = this.rodTip(hook.lane, 0, !!fish);
       let at;
@@ -553,7 +568,7 @@ export class Ocean {
     const c = this.ctx, age = this.time - fish.landedAt, lift = ease(age / HOIST);
     const tip = this.rodTip(fish.lane, lift, false), size = this.fishSize(fish) * LANDED_SCALE;
     const x = lerp(this.laneX(fish.lane) + 35 * this.boatScale(), tip.x, lift);
-    const y = lerp(176, tip.y + 13, lift);
+    const y = lerp(this.reelY(), tip.y + 13, lift);
     const hang = -fish.direction * Math.PI / 2;
     const angle = hang * (1 - Math.exp(-5 * age) * Math.cos(11 * age)) + Math.sin(this.ambientTime * 1.7 + fish.lane) * 0.05;
     c.strokeStyle = INK; c.lineWidth = 2.4;
@@ -635,42 +650,44 @@ export class Ocean {
   drawBubbles(w, h, t) {
     const c = this.ctx;
     c.strokeStyle = INK; c.lineWidth = 1.3; c.fillStyle = STOCK;
+    // Bubbles rise from the seabed to just under the surface, then start again.
+    const rise = SEABED - 330;
     for (let i = 0; i < 20; i++) {
-      const y = 250 + ((i * 59 - t * (18 + i % 4 * 7) + 1800) % 1500);
+      const y = 250 + (((i * 59 - t * (18 + i % 4 * 7)) % rise) + rise) % rise;
       if (y < this.top || y > this.top + h) continue;
       const x = (i * 131.3 % w) + Math.sin(t * 0.6 + i) * 8;
       c.beginPath(); c.arc(x, y, 1.8 + i % 3, 0, TAU); c.fill(); c.stroke();
     }
   }
 
+  // The seabed: hatched ground from its crest down past the bottom of the page, with kelp
+  // and rocks on its base. It is the floor, never a strip: there is no sea beneath it.
   drawLandscape(w, t) {
-    const c = this.ctx;
-    for (const base of [this.height + 18 - this.drop, 1120, 1620]) {
-      if (base < this.top - 20 || base - 150 > this.top + this.height) continue;
-      const bed = new Path2D();
-      bed.moveTo(0, base - 25); bed.bezierCurveTo(w * 0.25, base - 105, w * 0.35, base + 20, w * 0.65, base - 40);
-      bed.quadraticCurveTo(w * 0.9, base - 90, w, base - 50); bed.lineTo(w, base + 80); bed.lineTo(0, base + 80); bed.closePath();
-      c.fillStyle = STOCK; c.fill(bed);
-      c.fillStyle = this.hatch; c.globalAlpha = 0.45; c.fill(bed); c.globalAlpha = 1;
-      c.strokeStyle = INK; c.lineWidth = 2.2; c.stroke(bed);
-      for (let i = 0; i < 16; i++) {
-        const x = i < 8 ? i * 13 - 25 : w - (i - 8) * 14 + 25;
-        const height = 50 + (i * 31 % 86);
-        const sway = Math.sin(t * 0.8 + i) * 10;
-        c.strokeStyle = INK; c.lineWidth = 3 + i % 3;
-        c.beginPath(); c.moveTo(x, base); c.bezierCurveTo(x - 16, base - height * 0.35, x + 19 + sway, base - height * 0.7, x + sway, base - height); c.stroke();
-        c.lineWidth = 2.2;
-        for (let leaf = 1; leaf <= 3; leaf++) {
-          const y = base - height * (leaf / 4), sign = leaf % 2 ? 1 : -1;
-          c.beginPath(); c.moveTo(x + 3, y); c.quadraticCurveTo(x + sign * 20, y - 9, x + sign * 15, y - 22); c.stroke();
-        }
+    const c = this.ctx, base = SEABED;
+    if (base - 150 > this.top + this.height) return;
+    const bed = new Path2D(), ground = Math.max(base + 80, this.top + this.height + 20);
+    bed.moveTo(0, base - 25); bed.bezierCurveTo(w * 0.25, base - 105, w * 0.35, base + 20, w * 0.65, base - 40);
+    bed.quadraticCurveTo(w * 0.9, base - 90, w, base - 50); bed.lineTo(w, ground); bed.lineTo(0, ground); bed.closePath();
+    c.fillStyle = STOCK; c.fill(bed);
+    c.fillStyle = this.hatch; c.globalAlpha = 0.45; c.fill(bed); c.globalAlpha = 1;
+    c.strokeStyle = INK; c.lineWidth = 2.2; c.stroke(bed);
+    for (let i = 0; i < 16; i++) {
+      const x = i < 8 ? i * 13 - 25 : w - (i - 8) * 14 + 25;
+      const height = 50 + (i * 31 % 86);
+      const sway = Math.sin(t * 0.8 + i) * 10;
+      c.strokeStyle = INK; c.lineWidth = 3 + i % 3;
+      c.beginPath(); c.moveTo(x, base); c.bezierCurveTo(x - 16, base - height * 0.35, x + 19 + sway, base - height * 0.7, x + sway, base - height); c.stroke();
+      c.lineWidth = 2.2;
+      for (let leaf = 1; leaf <= 3; leaf++) {
+        const y = base - height * (leaf / 4), sign = leaf % 2 ? 1 : -1;
+        c.beginPath(); c.moveTo(x + 3, y); c.quadraticCurveTo(x + sign * 20, y - 9, x + sign * 15, y - 22); c.stroke();
       }
-      c.fillStyle = INK;
-      c.beginPath(); c.ellipse(12, base - 6, 57, 27, -0.15, Math.PI, TAU); c.fill();
-      c.beginPath(); c.ellipse(w - 5, base - 12, 70, 26, 0.1, Math.PI, TAU); c.fill();
-      c.strokeStyle = STOCK; c.lineWidth = 1.6;
-      c.beginPath(); c.arc(4, base - 8, 30, Math.PI * 1.15, Math.PI * 1.45); c.stroke();
-      c.beginPath(); c.arc(w - 18, base - 14, 38, Math.PI * 1.2, Math.PI * 1.45); c.stroke();
     }
+    c.fillStyle = INK;
+    c.beginPath(); c.ellipse(12, base - 6, 57, 27, -0.15, Math.PI, TAU); c.fill();
+    c.beginPath(); c.ellipse(w - 5, base - 12, 70, 26, 0.1, Math.PI, TAU); c.fill();
+    c.strokeStyle = STOCK; c.lineWidth = 1.6;
+    c.beginPath(); c.arc(4, base - 8, 30, Math.PI * 1.15, Math.PI * 1.45); c.stroke();
+    c.beginPath(); c.arc(w - 18, base - 14, 38, Math.PI * 1.2, Math.PI * 1.45); c.stroke();
   }
 }

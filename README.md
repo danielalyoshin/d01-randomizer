@@ -2,7 +2,7 @@
 
 A browser-based fishing game for choosing the next CSCD01 tutorial presenter. Each group has a boat. Cast the lines, follow the hooks underwater, and compare the fish: **only the group with the smallest fish presents next**.
 
-Check **Presented** above any boat to exclude that group from subsequent rounds. Run a new round before each presentation. The results also offer **Mark presented & return** to check the winning boat for you. No complete presentation order is generated.
+Click a boat's name tag to mark that group **Presented** and exclude it from subsequent rounds (or tick it in **Options**). Run a new round before each presentation. The results also offer **Mark presented & return** to check the winning boat for you. No complete presentation order is generated.
 
 ## Run locally
 
@@ -31,7 +31,7 @@ Deploy `dist/` to any static web host. No server, accounts, API keys, external a
 
 - The game fills the page. Open **Options** in the upper right to edit your groups; the panel starts collapsed and closes when you cast.
 - Start with eight boats; use **Options** to rename groups, add up to twelve, or remove down to two.
-- Check **Presented** above boats that should sit out. Excluded boats stay visible at the dock.
+- Click the name tag of any boat that should sit out, or tick it in **Options**. Presented boats stay visible at the dock, stamped PRESENTED.
 - **Cast the lines** starts a lively expedition, usually around 10–20 seconds. Pause/resume at any time or select **Reveal catch** to immediately see the same round's result.
 - Fish swim freely through a small shared school (20–36 fish, depending on the crew and scene width). Lines sway at different depths and hook whichever fish they touch, regardless of markings. Hooks search back through the water if they miss on the first descent. All participating boats catch one fish.
 - Hooked fish thrash against vibrating lines, with splashes, bubbles, and bite bursts. The camera follows the remaining hooks, then returns to the boats as the last catches reel in. A live counter tracks the action.

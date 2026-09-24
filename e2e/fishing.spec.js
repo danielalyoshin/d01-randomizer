@@ -36,12 +36,20 @@ test('a full expedition catches every fish, follows hooks down, and resumes afte
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('button', { name: 'Cast the lines' }).click();
+  // The catch feed's gauge has one segment per boat in the round.
+  expect(await page.locator('.game-card').evaluate(card => getComputedStyle(card).getPropertyValue('--hooks').trim())).toBe('8');
   await expect.poll(async () => parseFloat(await page.locator('#depth').textContent())).toBeGreaterThan(2);
   // The name tags stay pinned as the dock strip while the camera dives.
   await expect(page.locator('.boat-tag').first()).toBeInViewport();
   await expect(page.locator('.boat-tag').first()).toHaveText('01 Group 01');
+  // The masthead lifts off the page during the dive, so it never covers a boat reeling in.
+  await expect(page.locator('.game-card')).toHaveClass(/is-diving/, { timeout: 20000 });
+  await expect(page.locator('.masthead')).toBeHidden();
   await expect(page.locator('#catch-feed-title')).toHaveText(/^\d\d\u00a0·\u00a0Group \d\d$/, { timeout: 20000 });
   await page.getByRole('button', { name: 'Pause fishing' }).click();
+  // Paused, the masthead and Options are back in reach.
+  await expect(page.locator('.masthead')).toBeVisible();
+  await expect(page.locator('#options-toggle')).toBeVisible();
   const pausedDepth = await page.locator('#depth').textContent();
   await page.waitForTimeout(400);
   await expect(page.locator('#depth')).toHaveText(pausedDepth);
@@ -49,6 +57,29 @@ test('a full expedition catches every fish, follows hooks down, and resumes afte
   await expect(page.locator('#results-dialog')).toBeVisible({ timeout: 35000 });
   await expect(page.locator('.catch-row')).toHaveCount(8);
   expect(errors).toEqual([]);
+});
+
+test('the board prints Presented and toggles it in one action from the name tag or the Options list', async ({ page }) => {
+  await page.goto('/');
+  // The board carries no form controls; each name tag is the toggle and prints its own state.
+  await expect(page.locator('#boat-labels input')).toHaveCount(0);
+  const stamp = (boat) => page.locator('.boat-label').nth(boat - 1).locator('.presented-stamp');
+  await page.getByRole('checkbox', { name: 'Group 03 already presented' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Group 03 already presented' })).toBeChecked();
+  await expect(stamp(3)).toBeVisible();
+  await expect(page.locator('#ready-count')).toHaveText('7');
+  await page.locator('#options-toggle').click();
+  await expect(page.getByRole('checkbox', { name: 'Group 03 presented', exact: true })).toBeChecked();
+  await page.getByRole('checkbox', { name: 'Group 03 presented', exact: true }).uncheck();
+  await expect(page.getByRole('checkbox', { name: 'Group 03 already presented' })).not.toBeChecked();
+  await expect(stamp(3)).toBeHidden();
+  await page.getByRole('checkbox', { name: 'Group 05 presented', exact: true }).check();
+  await expect(page.getByRole('checkbox', { name: 'Group 05 presented', exact: true })).toBeFocused();
+  await expect(page.getByRole('checkbox', { name: 'Group 05 already presented' })).toBeChecked();
+  await expect(stamp(5)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('checkbox', { name: 'Group 05 already presented' })).toBeChecked();
+  await expect(page.locator('#ready-count')).toHaveText('7');
 });
 
 test('one remaining boat can catch a fish; all presented disables casting; resetting restores everyone', async ({ page }) => {

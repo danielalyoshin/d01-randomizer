@@ -39,8 +39,8 @@ $('#app').innerHTML = `
           <div class="crew-heading"><h2 id="crew-title">Boats</h2><span class="count-badge" id="group-count">08</span></div>
           <div class="crew-list" id="crew-list" role="group" aria-labelledby="crew-title"></div>
           <button class="add-button" id="add-group">${icon('plus', 18)} Add a boat <span id="capacity-label">8 / 12</span></button>
-          <p class="crew-tip">Tick “Presented” above a boat to sit it out.</p>
-          <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Untick every Presented box">Reset presented</button></div>
+          <p class="crew-tip">Tick a boat here, or click its name tag on the board, to mark it presented.</p>
+          <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Put every boat back in play">Reset presented</button></div>
           <button class="last-catch-button text-button" id="last-catch-button" ${lastCatch ? '' : 'hidden'}>${icon('fish', 20)} View last catch ${icon('arrow', 18)}</button>
           <div class="options-tools">
             <button class="text-button" id="how-to">${icon('help', 20)} How to play</button>
@@ -51,7 +51,7 @@ $('#app').innerHTML = `
       <div class="ocean-viewport" id="ocean-viewport">
         <div class="ocean-world" id="ocean-world">
           <canvas id="ocean" aria-label="Fishing boats above a fast-moving school of fish. Staggered hooks catch whichever fish they meet."></canvas>
-          <div class="boat-labels" id="boat-labels" role="group" aria-label="Mark boats that have already presented"></div>
+          <div class="boat-labels" id="boat-labels" role="group" aria-label="Boats at the dock. Select a name tag to mark it presented."></div>
         </div>
       </div>
       <div class="cast-callout" aria-hidden="true"><strong>Lines in!</strong><span>Every boat for itself</span></div>
@@ -68,7 +68,7 @@ $('#app').innerHTML = `
     </section>
   </main>
 
-  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. Open Options to rename, add or remove boats (2–12).</li><li><strong>Check off past presenters.</strong> Tick “Presented” above a boat to sit it out. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><p class="help-footnote">Boat names and Presented ticks are saved in this browser. Sound is optional. <kbd>Space</kbd> casts or pauses; <kbd>Esc</kbd> closes this guide. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button></dialog>
+  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. Open Options to rename, add or remove boats (2–12).</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><p class="help-footnote">Boat names and who has presented are saved in this browser. Sound is optional. <kbd>Space</kbd> casts or pauses; <kbd>Esc</kbd> closes this guide. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button></dialog>
 
   <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Back to the boats">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison"></div><div class="results-actions"><button class="lever" id="mark-presented">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
   <div class="toast" id="toast" role="status"></div>
@@ -92,9 +92,6 @@ function activeGroups() { return groups.filter(group => !group.excluded); }
 const ocean = new Ocean($('#ocean'), {
   onCatch(fish) {
     caughtCount++;
-    const row = document.querySelector(`[data-group-row="${CSS.escape(fish.id)}"]`);
-    row?.classList.add('has-catch');
-    if (row) row.querySelector('.row-state').innerHTML = icon('fish', 18);
     // The boat's tag turns red for the fight, like its pennant and hook plate.
     document.querySelector(`[data-boat="${CSS.escape(fish.id)}"]`)?.classList.add('is-fighting');
     $('#control-title').textContent = caughtCount === catches.length ? 'All hooked. Bring them home!' : `${boatLabel(fish.lane, fish.name)} — fish on!`;
@@ -137,8 +134,10 @@ new ResizeObserver(() => ocean.setDock($('#boat-labels').offsetTop + $('#boat-la
 
 function renderCrew() {
   const fishing = phase === 'fishing';
-  $('#crew-list').innerHTML = groups.map((group, i) => `<div class="crew-row ${group.excluded ? 'excluded' : ''}" data-group-row="${escapeHtml(group.id)}"><span class="boat-number">${String(i + 1).padStart(2, '0')}</span><label class="sr-only" for="name-${escapeHtml(group.id)}">Name for boat ${i + 1}</label><input id="name-${escapeHtml(group.id)}" data-name="${escapeHtml(group.id)}" value="${escapeHtml(group.name)}" maxlength="32" autocomplete="off" spellcheck="false" ${fishing ? 'disabled' : ''}/><span class="row-state" aria-label="${group.excluded ? 'Already presented' : 'Ready'}">${group.excluded ? icon('check', 18) : '<span class="row-dot"></span>'}</span><button class="remove-group icon-button" data-remove="${escapeHtml(group.id)}" aria-label="Remove ${escapeHtml(group.name)}" ${fishing || groups.length <= MIN_GROUPS ? 'disabled' : ''}>${icon('close', 18)}</button></div>`).join('');
-  $('#boat-labels').innerHTML = groups.map((group, i) => `<div class="boat-label ${group.excluded ? 'excluded' : ''}" data-boat="${escapeHtml(group.id)}"><span class="boat-tag" title="${escapeHtml(boatLabel(i, group.name))}"><b class="boat-tag-number">${boatNumber(i)}</b> <span class="boat-name">${escapeHtml(group.name)}</span></span><label class="presented-label"><input type="checkbox" data-exclude="${escapeHtml(group.id)}" aria-label="${escapeHtml(group.name)} already presented" ${group.excluded ? 'checked' : ''} ${fishing ? 'disabled' : ''}/><span>Presented</span></label></div>`).join('');
+  $('#crew-list').innerHTML = groups.map((group, i) => `<div class="crew-row ${group.excluded ? 'excluded' : ''}" data-group-row="${escapeHtml(group.id)}"><span class="boat-number">${String(i + 1).padStart(2, '0')}</span><label class="sr-only" for="name-${escapeHtml(group.id)}">Name for boat ${i + 1}</label><input id="name-${escapeHtml(group.id)}" data-name="${escapeHtml(group.id)}" value="${escapeHtml(group.name)}" maxlength="32" autocomplete="off" spellcheck="false" ${fishing ? 'disabled' : ''}/><input type="checkbox" class="presented-box" data-present="${escapeHtml(group.id)}" aria-label="${escapeHtml(group.name)} presented" title="Presented" ${group.excluded ? 'checked' : ''} ${fishing ? 'disabled' : ''}/><button class="remove-group icon-button" data-remove="${escapeHtml(group.id)}" aria-label="Remove ${escapeHtml(group.name)}" ${fishing || groups.length <= MIN_GROUPS ? 'disabled' : ''}>${icon('close', 18)}</button></div>`).join('');
+  // The board prints who has presented and carries no controls of its own: the name tag
+  // itself is the toggle, and a presented boat's tag is stamped PRESENTED.
+  $('#boat-labels').innerHTML = groups.map((group, i) => `<div class="boat-label ${group.excluded ? 'excluded' : ''}" data-boat="${escapeHtml(group.id)}"><button type="button" class="boat-tag" role="checkbox" aria-checked="${group.excluded}" aria-label="${escapeHtml(group.name)} already presented" data-exclude="${escapeHtml(group.id)}" title="${escapeHtml(boatLabel(i, group.name))}" ${fishing ? 'disabled' : ''}><span class="boat-tag-text"><b class="boat-tag-number">${boatNumber(i)}</b> <span class="boat-name">${escapeHtml(group.name)}</span></span></button><span class="presented-stamp" aria-hidden="true">Presented</span></div>`).join('');
   $('#ocean-world').style.minWidth = `${Math.max(640, groups.length * 110)}px`;
   $('#boat-labels').style.setProperty('--boats', groups.length);
   $('#group-count').textContent = String(groups.length).padStart(2, '0');
@@ -157,16 +156,18 @@ function renderCrew() {
 }
 
 $('#crew-list').addEventListener('change', (event) => {
+  const box = event.target.closest('[data-present]');
+  if (box) { setPresented(box.dataset.present, box.checked, 'data-present'); return; }
   const input = event.target.closest('[data-name]');
   if (!input || phase !== 'idle') return;
   const group = groups.find(group => group.id === input.dataset.name);
   group.name = input.value.trim() || `Group ${String(groups.indexOf(group) + 1).padStart(2, '0')}`;
   input.value = group.name;
-  const checkbox = $(`[data-exclude="${CSS.escape(group.id)}"]`);
-  const tag = checkbox.closest('.boat-label').querySelector('.boat-tag');
+  const tag = $(`[data-exclude="${CSS.escape(group.id)}"]`);
   tag.querySelector('.boat-name').textContent = group.name;
   tag.title = boatLabel(groups.indexOf(group), group.name);
-  checkbox.setAttribute('aria-label', `${group.name} already presented`);
+  tag.setAttribute('aria-label', `${group.name} already presented`);
+  $(`[data-present="${CSS.escape(group.id)}"]`).setAttribute('aria-label', `${group.name} presented`);
   $(`[data-remove="${CSS.escape(group.id)}"]`).setAttribute('aria-label', `Remove ${group.name}`);
   persist();
 });
@@ -181,14 +182,20 @@ $('#crew-list').addEventListener('click', (event) => {
   announce(`${removed.name} removed. ${groups.length} boats on board.`);
 });
 
-$('#boat-labels').addEventListener('change', (event) => {
-  const checkbox = event.target.closest('[data-exclude]');
-  if (!checkbox || phase !== 'idle') return;
-  const group = groups.find(group => group.id === checkbox.dataset.exclude);
-  group.excluded = checkbox.checked;
+// Presented is one action from either place: a boat's name tag on the board, or its tick box in Options.
+function setPresented(id, excluded, control) {
+  const group = groups.find(group => group.id === id);
+  if (!group || phase !== 'idle') return;
+  group.excluded = excluded;
   persist(); renderCrew();
-  $(`[data-exclude="${CSS.escape(group.id)}"]`).focus();
+  $(`[${control}="${CSS.escape(group.id)}"]`).focus();
   announce(`${group.name} ${group.excluded ? 'will sit this round out' : 'is back on board'}. ${activeGroups().length} boats ready.`);
+}
+
+$('#boat-labels').addEventListener('click', (event) => {
+  const tag = event.target.closest('[data-exclude]');
+  const group = tag && groups.find(group => group.id === tag.dataset.exclude);
+  if (group) setPresented(group.id, !group.excluded, 'data-exclude');
 });
 
 $('#add-group').addEventListener('click', () => {
@@ -230,6 +237,7 @@ function startRound() {
   $('#catch-feed-count').textContent = `0 / ${catches.length} HOOKED`;
   $('.catch-feed-label').textContent = 'NO BITES YET';
   $('.game-card').style.setProperty('--catch-progress', '0%');
+  $('.game-card').style.setProperty('--hooks', catches.length);
   $('.game-card').classList.add('is-fishing');
   $('#pause-button').innerHTML = icon('pause', 24);
   $('#pause-button').setAttribute('aria-label', 'Pause fishing');
