@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-23T16:21:14+00:00",
+  "generatedAt": "2026-09-24T15:41:56+00:00",
   "title": "Design System: The Daily Catch · CSCD01",
   "extensions": {
     "colorMeta": {
@@ -128,27 +128,35 @@
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Verdict name and help title; uppercase, rotated -4 to -6 degrees, slammed from light to 900."
+        "purpose": "Verdict name and help title; uppercase, rotated -4 to -6 degrees, slammed from light to 900. The cast callout is the one larger shout."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Control message on the black band; masthead."
+        "purpose": "Control message on the black band, the masthead and the red \"Next to present\" overprint."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Boat names, lever and plate labels, group names, step titles. The back-row minimum."
+        "purpose": "Boat names, plate labels, group names, step titles, the catch-feed line and toasts. The back-row minimum."
+      },
+      "lever": {
+        "displayName": "Lever",
+        "purpose": "Lever labels; the band CAST lever steps up to 30px."
+      },
+      "ui": {
+        "displayName": "UI",
+        "purpose": "Text buttons, crew footer, status tag, spine legend, number blocks (at 900), SMALLEST stamp, feed label. Smallest step allowed to carry red with black."
       },
       "numeral": {
         "displayName": "Numeral",
-        "purpose": "Fish lengths, depth gauge, number blocks; tabular figures."
+        "purpose": "Fish lengths, the depth gauge and the crew heading; tabular figures."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Eyebrow tags, gauge keys, table headings; tracked caps."
+        "purpose": "Eyebrow tags, gauge keys, table headings, the scroll hint; tracked caps."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Explanatory sentences only (help, tips, fairness note), Archivo at 88% width."
+        "purpose": "Explanatory sentences only (help, tips, fairness note, winner sentence), Archivo at 88% width."
       }
     },
     "shadows": [
@@ -240,6 +248,16 @@
         "purpose": "Catch shouts: scale 2.2 to 1, weight 300 to 900, loudness 0.8 to 1.2 by catch order; board shake up to 4.5px."
       },
       {
+        "name": "status-blink",
+        "value": "1s steps(2)",
+        "purpose": "The status dot blinks red while fishing; pauses with the round."
+      },
+      {
+        "name": "tail-wake",
+        "value": "tail clock, 4 strokes",
+        "purpose": "Alternating tail beats shed curved ink strokes that spread, thin 1.5 to 0.8px and fade; frozen when paused, omitted under reduced motion."
+      },
+      {
         "name": "reduced-motion",
         "value": "none",
         "purpose": "prefers-reduced-motion disables all animations, transitions, the cast callout, ambient drift and shake."
@@ -323,7 +341,7 @@
       "refersTo": "catch-feed",
       "description": "Bolted black HUD plate with a segmented red progress gauge.",
       "html": "<div class=\"ds-feed\" style=\"--catch-progress:62%\"><div class=\"ds-feed-head\"><span class=\"ds-feed-label\">Fish on</span><span class=\"ds-feed-count\">5 / 8</span></div><strong>Boat 04 hooks one</strong></div>",
-      "css": ".ds-feed { min-width: 250px; max-width: 380px; padding: 11px 14px 12px 14px; background: var(--ink, #111111); color: var(--stock, #f2ede2); clip-path: polygon(0 0, 100% 0, 100% 100%, 12px 100%, 0 calc(100% - 12px)); } .ds-feed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-bottom: 5px; } .ds-feed-label { font: 800 19px/1 var(--display, 'Big Shoulders Variable', 'Arial Narrow', Impact, sans-serif); letter-spacing: .12em; color: var(--red, #d7261e); text-transform: uppercase; } .ds-feed-count { font: 900 22px/1 var(--display, 'Big Shoulders Variable', 'Arial Narrow', Impact, sans-serif); font-variant-numeric: tabular-nums; } .ds-feed strong { display: block; font: 800 22px/1 var(--display, 'Big Shoulders Variable', 'Arial Narrow', Impact, sans-serif); text-transform: uppercase; } .ds-feed::after { content: ''; display: block; height: 9px; margin-top: 9px; background: linear-gradient(90deg, var(--red, #d7261e) var(--catch-progress, 0%), #f2ede22e 0); -webkit-mask: repeating-linear-gradient(90deg, #000 0 11px, transparent 11px 14px); mask: repeating-linear-gradient(90deg, #000 0 11px, transparent 11px 14px); }"
+      "css": ".ds-feed { min-width: 250px; max-width: 380px; padding: 11px 14px 12px 14px; background: var(--ink, #111111); color: var(--stock, #f2ede2); clip-path: polygon(0 0, 100% 0, 100% 100%, 12px 100%, 0 calc(100% - 12px)); } .ds-feed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-bottom: 5px; } .ds-feed-label { font: 800 19px/1 var(--display, 'Big Shoulders Variable', 'Arial Narrow', Impact, sans-serif); letter-spacing: .1em; color: var(--red, #d7261e); text-transform: uppercase; } .ds-feed-count { font: 900 22px/1 var(--display, 'Big Shoulders Variable', 'Arial Narrow', Impact, sans-serif); font-variant-numeric: tabular-nums; } .ds-feed strong { display: block; font: 800 22px/1 var(--display, 'Big Shoulders Variable', 'Arial Narrow', Impact, sans-serif); text-transform: uppercase; } .ds-feed::after { content: ''; display: block; height: 9px; margin-top: 9px; background: linear-gradient(90deg, var(--red, #d7261e) var(--catch-progress, 0%), #f2ede22e 0); -webkit-mask: repeating-linear-gradient(90deg, #000 0 11px, transparent 11px 14px); mask: repeating-linear-gradient(90deg, #000 0 11px, transparent 11px 14px); }"
     },
     {
       "name": "To-Scale Haul",

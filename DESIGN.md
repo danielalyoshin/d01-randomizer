@@ -100,6 +100,7 @@ components:
     textColor: "{colors.stock-cream}"
   text-button:
     textColor: "{colors.type-black}"
+    typography: "{typography.ui}"
     padding: "6px 0"
   text-button-hover:
     textColor: "{colors.mechanical-red}"
@@ -184,10 +185,10 @@ A two-ink letterpress palette on warm cream stock, with a single mechanical red 
 
 ### Hierarchy
 - **Display** (900, clamp(44px, 6vw, 82px), 0.86): The verdict name in the results and the help title. Uppercase, rotated -6° (help title -4°), pivoting on the bottom-left corner. The cast callout is the one larger shout at clamp(76px, 11vw, 168px), rotated -15°. Help step numerals use a fixed 52px display step.
-- **Headline** (900, clamp(30px, 3vw, 48px), 0.9): The control message on the black band, the masthead, the crew heading and the red "Next to present" overprint above the verdict.
+- **Headline** (900, clamp(30px, 3vw, 48px), 0.9): The control message on the black band, the masthead and the red "Next to present" overprint above the verdict.
 - **Lever** (900, 26px): Lever labels. The band's CAST lever steps up to the numeral size (30px).
 - **Title** (800, 22px, 1): Boat names, plate labels, crew and result group names, step titles, the catch-feed line, toasts.
-- **Numeral** (900, 30px, tabular figures): Fish lengths and the depth gauge. Units drop to the label or UI step at 800.
+- **Numeral** (900, 30px, tabular figures): Fish lengths and the depth gauge. Units drop to the label or UI step at 800. The crew heading in the Options panel also sits at this fixed 30px step rather than the fluid headline.
 - **UI** (800, 19px, 0.04em): Text buttons, crew footer, status tag, spine legend, number blocks, the SMALLEST stamp, the catch-feed label, the depth label. 19px is the smallest step allowed to carry red-on-black or black-on-red type: at weight 800+ it counts as large text, which the 3.7:1 pairing passes.
 - **Label** (800, 14px, 0.16em tracking, uppercase): Eyebrow tags, gauge keys, table headings, the scroll hint.
 - **Body** (Archivo 400–600, 16px, 1.4–1.5): Help steps, the fairness note, the winner sentence; fine print (tips, help footnote) drops to the 14px label step. Short lines only; never used for anything the back row needs to read.
@@ -207,7 +208,7 @@ HUD plates float over the canvas at fixed corners. The masthead sits top-left an
 
 Spacing is tight and irregular in the way printed matter is. The recurring steps are 6px, 12px, 14px and 18px, and padding is optically corrected (for example 5px on top and 4px underneath caps).
 
-Responsive behaviour. At 900px or narrower, band copy steps down. At 600px or narrower, the spine and status tag drop away, the card goes borderless, the band stacks with a full-width lever, and the cast callout steepens to -24°. Dialog spines narrow to 30px and results rows tighten. At a height of 520px or less, the spine drops and the band stays in a single row.
+Responsive behaviour. At 900px or narrower, band copy steps down. At 600px or narrower, the spine and status tag drop away, the card goes borderless, the band stacks with a full-width lever, and the cast callout steepens to -24°. Boat name tags, the Options tag, help step titles and result group names step down to the 19px UI size, and the depth gauge keeps only its number. Dialog spines narrow to 30px and results rows tighten. At a height of 520px or less, the spine drops and the band stays in a single row.
 
 ## Elevation & Depth
 
@@ -242,10 +243,11 @@ The controls are tactile and mechanical: black-edged plates that you press into 
 - **Plate button (secondary):** Cream face with black type, 22px at 800, at least 52px tall. On hover the face turns black and the type cream.
 - **Hover / Focus / Active:** Hover lifts the plate by -2px and extends the drop to 6px; the lever's type turns cream. Active pushes the plate 3px and shrinks the drop to 1px in 0.05s. Focus is a 3px red outline at a 4px offset (cream on the black band). Disabled plates get the stock-deep face, faded-ink type and edge, no drop, and a greyed bolt.
 - **Icon button:** A 40px square with a 2px black frame on cream, inverting on hover. The pause button is 56px, cream-framed on black.
-- **Text button:** Display caps at 17px/800 with no frame. On hover the type turns red and a 2px underline appears 5px below.
+- **Text button:** Display caps at the 19px UI step (800, 0.04em) with no frame. On hover the type turns red and a 2px underline appears 5px below.
+- **Add button:** A full-width 2px dashed black frame with UI caps and the group count pushed to the right. On hover it fills black, the type turns cream and the dash goes solid.
 
 ### Chips
-- **Eyebrow tag:** A black slab with cream caps at 15px/800 and 0.16em tracking. It opens dialogs and headings.
+- **Eyebrow tag:** A black slab with cream caps at the 14px label step (800, 0.16em tracking). It opens dialogs and headings.
 - **Status tag:** A black slab with a slanted trailing edge and a square status dot that blinks red while fishing.
 - **Number block:** A black square (34px in crew rows, 32px in results) with a cream tabular numeral. It turns red with black type for the smallest catch, and becomes an outlined faded-ink square when excluded.
 
@@ -257,9 +259,10 @@ The controls are tactile and mechanical: black-edged plates that you press into 
 - **Internal Padding:** Options panel 18px (34px at the bottom to clear the corner bolts); dialogs 34px 38px 28px, with 76px on the left for the spine.
 
 ### Inputs / Fields
-- **Style:** Crew rows are ruled ledger lines (1px black under each, 3px black above the list) with a borderless transparent Archivo input at 16px/600. Presented checkboxes are 16px black-framed squares that fill red with a black X when checked.
+- **Style:** Crew rows are ruled ledger lines (1px black under each, 3px black above the list) with a borderless transparent Archivo input at 16px/600. Each row ends in a row mark: a 6px black square while the boat is ready, a red fish once it has a catch.
+- **Presented checkbox:** A cream tab under each boat's name tag on the board, with 14px label caps beside a 16px black-framed square that fills red with a black X when checked.
 - **Focus:** The row shades to stock shade with a 3px red underline.
-- **Excluded / Disabled:** The name is struck through with a 2px line in faded ink, and the row mark turns red.
+- **Excluded / Disabled:** The name is struck through with a 2px line in faded ink, and the row mark becomes a red check. On the board the name tag turns into a faded-ink outline, struck through.
 
 ### Navigation
 The Options tag is the only navigation: a slanted plate at the top right that opens a clipped panel below it. When open, it inverts to a black face with a red drop and its chevron turns 180°.
@@ -268,7 +271,7 @@ The Options tag is the only navigation: a slanted plate at the top right that op
 Each page hangs on a spine: a 46px shaded gutter behind a 3px black rule, with two bolts at its top and bottom, a clipped top-right corner and grain and speckle over the page. It opens with a page slam: rising 26px from -1.5° and 97% scale over 0.38s.
 
 ### Catch Feed (signature)
-A black plate with two bolts and a notched corner. It shows a red caps label, a tabular count, the latest catch in 24px caps, and a segmented gauge: 11px red segments with 3px gaps that fill from the left as catches land.
+A black plate with two bolts and a notched corner. It shows a red caps label, a tabular count, the latest catch in 22px title caps, and a segmented gauge: 11px red segments with 3px gaps that fill from the left as catches land.
 
 ### To-Scale Haul (signature)
 The results table. Each row has a number block and name, then a measuring bar that ends in a printed fish drawn to scale against the largest catch, over a tick ruler every 10%, then the length. The smallest catch's row inverts to black; its bar, fish and length turn red, and a tilted red SMALLEST stamp appears. Rows slam in from the left with a 45ms stagger.
@@ -276,7 +279,7 @@ The results table. Each row has a number block and name, then a measuring bar th
 The bar and fish together occupy the catch's exact proportion of the full ruler. Fish shrink to fit short measurements; they never add a fixed length to the scale. The winner's ink band extends behind the row without shifting its ruler or numerals.
 
 ### Engraved Board (signature)
-The Canvas 2D scene. The sea is broken lines of force: rows every 24px of solid-ink strokes 64 to 156px long, with open paper between them. They thicken with depth from 1.1 to 2.4px, staying under the fishing lines, bow slightly and drift slowly; the solid black waterline band anchors the surface. Headlands and seabed are hatched, and a red sun has a misregistered ink ring. Boats are solid black hulls with cream numerals. A hooked line turns red and grows from 2.6 to 3.6px; the hook plate turns red, and a black-offset red shout slams in with a shockwave and radiating lines. Each catch shakes the board up to 4.5px.
+The Canvas 2D scene. The sea is broken lines of force: rows every 24px of solid-ink strokes 64 to 156px long, with open paper between them. They thicken with depth from 1.1 to 2.4px, staying under the fishing lines, bow slightly and drift slowly; the solid black waterline band anchors the surface. Headlands and seabed are hatched, and a red sun has a misregistered ink ring. Boats are solid black hulls with cream numerals. Boats that have presented stay at the dock printed at 28% ink, with no line in the water. A hooked line turns red and grows from 2.6 to 3.6px; the hook plate turns red, and a black-offset red shout slams in with a shockwave and radiating lines. Each catch shakes the board up to 4.5px.
 
 Fish share one code-drawn engraving across the canvas and result illustrations: a tapered body, forked tail, swept fins, small ringed eye and curved gill. The six ink markings remain recognizable when the winner is overprinted red. Fine fin rays and contour cuts appear on the large verdict fish and larger swimmers; small comparison fish retain the silhouette and markings with simpler linework. Tail motion pivots at the body join, and the mouth stays aligned with the simulated contact point.
 
