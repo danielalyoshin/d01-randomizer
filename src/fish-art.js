@@ -76,6 +76,14 @@ function pathFor(d) {
   return paths.get(d);
 }
 
+function poseTail(c, phase) {
+  const beat = Math.sin(phase * 5);
+  c.translate(38, 36);
+  c.rotate(beat * 0.065);
+  c.scale(1 + beat * 0.045, 1);
+  c.translate(-38, -36);
+}
+
 export function drawFish(c, x, y, size, style, direction, phase, hooked = false) {
   const scale = size / 90;
   c.save();
@@ -83,15 +91,20 @@ export function drawFish(c, x, y, size, style, direction, phase, hooked = false)
   c.scale(direction * scale, scale);
   c.translate(-96, -36);
   c.lineCap = 'round'; c.lineJoin = 'round';
+  // A narrow paper reserve keeps the sea's engraving off swimmers. A hooked fish
+  // skips it: its red outline already stands clear, and the hook must meet its mouth.
+  c.fillStyle = STOCK; c.strokeStyle = STOCK; c.lineWidth = 2.2 + 4 / scale;
+  for (const d of hooked ? [] : [TAIL, FINS, BODY]) {
+    c.save();
+    if (d === TAIL) poseTail(c, phase);
+    const path = pathFor(d);
+    c.fill(path); c.stroke(path);
+    c.restore();
+  }
   for (const layer of layersFor(style, false, hooked)) {
     if (layer.fine && size < 28) continue;
     c.save();
-    if (layer.tail) {
-      c.translate(38, 36);
-      c.rotate(Math.sin(phase * 5) * 0.065);
-      c.scale(1 + Math.sin(phase * 5) * 0.045, 1);
-      c.translate(-38, -36);
-    }
+    if (layer.tail) poseTail(c, phase);
     if (layer.clip) c.clip(pathFor(BODY));
     const path = pathFor(layer.d);
     if (layer.fill) { c.fillStyle = layer.fill; c.fill(path); }

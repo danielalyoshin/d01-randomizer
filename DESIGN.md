@@ -276,9 +276,11 @@ The results table. Each row has a number block and name, then a measuring bar th
 The bar and fish together occupy the catch's exact proportion of the full ruler. Fish shrink to fit short measurements; they never add a fixed length to the scale. The winner's ink band extends behind the row without shifting its ruler or numerals.
 
 ### Engraved Board (signature)
-The Canvas 2D scene. The sea is ink lines every 12px, from 1.3 to 2.6px thick and heavier every sixth row, with a solid black waterline band. Headlands and seabed are hatched, and a red sun has a misregistered ink ring. Boats are solid black hulls with cream numerals. A hooked line turns red and grows from 2.6 to 3.6px; the hook plate turns red, and a black-offset red shout slams in with a shockwave and radiating lines. Each catch shakes the board up to 4.5px.
+The Canvas 2D scene. The sea is broken lines of force: rows every 24px of solid-ink strokes 64 to 156px long, with open paper between them. They thicken with depth from 1.1 to 2.4px, staying under the fishing lines, bow slightly and drift slowly; the solid black waterline band anchors the surface. Headlands and seabed are hatched, and a red sun has a misregistered ink ring. Boats are solid black hulls with cream numerals. A hooked line turns red and grows from 2.6 to 3.6px; the hook plate turns red, and a black-offset red shout slams in with a shockwave and radiating lines. Each catch shakes the board up to 4.5px.
 
 Fish share one code-drawn engraving across the canvas and result illustrations: a tapered body, forked tail, swept fins, small ringed eye and curved gill. The six ink markings remain recognizable when the winner is overprinted red. Fine fin rays and contour cuts appear on the large verdict fish and larger swimmers; small comparison fish retain the silhouette and markings with simpler linework. Tail motion pivots at the body join, and the mouth stays aligned with the simulated contact point.
+
+Swimming fish carry a 2px stock-cream reserve around the body, fins and moving tail, so the sea's engraving never runs into their silhouettes. A hooked fish has none: its red outline already stands clear, and the hook must meet its mouth. Alternating tail beats shed short curved ink strokes that spread, thin from 1.5 to 0.8px and fade behind swimming fish. These wakes share the tail's clock, freeze when paused and are omitted under reduced motion.
 
 ## Do's and Don'ts
 

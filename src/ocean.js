@@ -194,8 +194,9 @@ export class Ocean {
       const x = ((fish.x * (w + 100) + t * fish.speed * fish.direction) % (w + 100) + w + 100) % (w + 100) - 50;
       if (fish.y > this.camera + h + 40 || fish.y < this.camera - 40) continue;
       const y = fish.y + Math.sin(t * 1.8 + fish.phase) * 19;
-      this.drawSpeedLines(x - fish.direction * fish.size * 0.95, y, fish.size, fish.direction, 8 + fish.speed / 16);
-      this.drawFish(x, y, fish.size, fish.style, fish.direction, t * 2 + fish.phase);
+      const phase = t * 2 + fish.phase;
+      this.drawFishWake(x, y, fish.size, fish.direction, phase, fish.speed);
+      this.drawFish(x, y, fish.size, fish.style, fish.direction, phase);
     }
     this.drawBubbles(w, h, t);
     for (let i = 0; i < this.groups.length; i++) {
@@ -255,26 +256,29 @@ export class Ocean {
     c.fillStyle = INK; c.beginPath(); c.moveTo(x - 8, y - 55); c.lineTo(x, y - 62); c.lineTo(x + 8, y - 55); c.fill();
   }
 
-  // The sea is engraved: horizontal lines of force that thicken with depth.
+  // The sea is engraved: broken lines of force with open paper between, thickening with depth.
   drawWater(w, h, t) {
     const c = this.ctx;
     const bottom = this.camera + h + 12;
+    const spacing = 24, cell = 216;
+    const firstRow = Math.max(0, Math.floor((this.camera - SURFACE - 20) / spacing));
     c.strokeStyle = INK;
-    const first = SURFACE + 12 + Math.max(0, Math.floor((this.camera - SURFACE - 24) / 12) * 12);
-    for (let y = first; y < bottom; y += 12) {
-      const k = clamp((y - SURFACE) / 1300, 0, 1);
-      const row = Math.round((y - SURFACE) / 12);
-      c.lineWidth = 1.3 + k * 1.3 + (row % 6 === 0 ? 0.7 : 0);
-      c.globalAlpha = 0.72 + k * 0.23;
-      const amp = 2.4 * (1 - k * 0.75), phase = row * 0.37;
+    for (let row = firstRow; SURFACE + 20 + row * spacing < bottom; row++) {
+      const y = SURFACE + 20 + row * spacing;
+      c.lineWidth = 1.1 + clamp((y - SURFACE) / 1300, 0, 1) * 1.3;
+      const offset = (row * 83) % cell;
       c.beginPath();
-      for (let x = -12; x <= w + 24; x += 24) {
-        const yy = y + Math.sin(x / 70 + t * 1.3 + phase) * amp;
-        if (x === -12) c.moveTo(x, yy); else c.lineTo(x, yy);
+      for (let column = -1; column * cell + offset < w; column++) {
+        const seed = row * 1.73 + column * 2.41;
+        const length = 64 + (Math.sin(seed * 3.7) * 0.5 + 0.5) * 92;
+        const x = column * cell + offset + Math.sin(t * 0.24 + seed) * 7;
+        const yy = y + Math.sin(seed * 2.3) * 3;
+        const bend = Math.sin(t * 0.32 + seed) * 1.4;
+        c.moveTo(x, yy);
+        c.bezierCurveTo(x + length * 0.32, yy + bend, x + length * 0.7, yy - bend, x + length, yy);
       }
       c.stroke();
     }
-    c.globalAlpha = 1;
     // Sun glitter, below the horizon band.
     c.strokeStyle = RED; c.lineWidth = 3;
     for (let i = 0; i < 6; i++) {
@@ -376,14 +380,30 @@ export class Ocean {
     });
   }
 
-  drawSpeedLines(x, y, size, direction, length) {
+  // Tail beats shed ink strokes on alternating sides; they spread, thin and fade on the tail's clock.
+  drawFishWake(x, y, size, direction, phase, speed) {
+    if (this.reducedMotion.matches) return;
     const c = this.ctx;
-    c.strokeStyle = INK; c.lineWidth = 1.3; c.globalAlpha = 0.5;
-    c.beginPath();
-    c.moveTo(x, y - size * 0.16); c.lineTo(x - direction * length, y - size * 0.16);
-    c.moveTo(x - direction * 4, y + size * 0.14); c.lineTo(x - direction * (length * 0.7 + 4), y + size * 0.14);
-    c.stroke();
-    c.globalAlpha = 1;
+    c.save();
+    c.translate(x - direction * (size * 0.98 + 3), y);
+    c.scale(direction, 1);
+    c.strokeStyle = INK;
+    const beat = phase * 5 / TAU;
+    const reach = 24 + speed * 0.14;
+    for (let i = 0; i < 4; i++) {
+      const age = ((beat * 0.5 + i / 4) % 1 + 1) % 1;
+      const side = i % 2 ? 1 : -1;
+      const length = (10 + speed * 0.04) * (1 - age * 0.55) * Math.min(1, age * 8);
+      const from = -age * reach;
+      const spread = side * size * (0.1 + age * 0.2);
+      const curl = side * (1 + age * 1.5);
+      c.globalAlpha = Math.sin(Math.PI * age);
+      c.lineWidth = 1.5 - age * 0.7;
+      c.beginPath(); c.moveTo(from, spread);
+      c.quadraticCurveTo(from - length * 0.5, spread + curl, from - length, spread + curl * 0.4);
+      c.stroke();
+    }
+    c.restore();
   }
 
   drawFishing() {
@@ -394,8 +414,9 @@ export class Ocean {
       if (position.y < this.camera - 45 || position.y > this.camera + this.height + 45) continue;
       const size = this.fishSize(fish), x = this.screenX(position.x);
       const bodyX = x - position.direction * size * 0.62;
-      this.drawSpeedLines(bodyX - position.direction * (size + 3), position.y, size, position.direction, 10 + fish.speed / 16);
-      this.drawFish(bodyX, position.y, size, fishStyle(fish.color), position.direction, this.ambientTime * 2.5 + fish.phase);
+      const phase = this.ambientTime * 2.5 + fish.phase;
+      this.drawFishWake(bodyX, position.y, size, position.direction, phase, fish.speed);
+      this.drawFish(bodyX, position.y, size, fishStyle(fish.color), position.direction, phase);
     }
     for (const hook of simulation.hooks) {
       const fish = hook.fish;
