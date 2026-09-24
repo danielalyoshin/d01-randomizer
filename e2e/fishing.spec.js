@@ -45,11 +45,13 @@ test('a full expedition catches every fish, follows hooks down, and resumes afte
   // The masthead lifts off the page during the dive, so it never covers a boat reeling in.
   await expect(page.locator('.game-card')).toHaveClass(/is-diving/, { timeout: 20000 });
   await expect(page.locator('.masthead')).toBeHidden();
+  await expect(page.locator('#help-tag')).toBeHidden();
   await expect(page.locator('#catch-feed-title')).toHaveText(/^\d\d\u00a0·\u00a0Group \d\d$/, { timeout: 20000 });
   await page.getByRole('button', { name: 'Pause fishing' }).click();
   // Paused, the masthead and Options are back in reach.
   await expect(page.locator('.masthead')).toBeVisible();
   await expect(page.locator('#options-toggle')).toBeVisible();
+  await expect(page.locator('#help-tag')).toBeVisible();
   const pausedDepth = await page.locator('#depth').textContent();
   await page.waitForTimeout(400);
   await expect(page.locator('#depth')).toHaveText(pausedDepth);
@@ -162,7 +164,7 @@ test('the reveal fits every row on common projector screens and Options folds aw
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await page.locator('#options-toggle').click();
-  await page.getByRole('button', { name: 'How to play' }).click();
+  await page.locator('#help-tag').click();
   await expect(page.locator('#help-dialog')).toBeVisible();
   await expect(page.locator('#crew-list')).toBeHidden();
   await page.keyboard.press('Escape');
@@ -269,4 +271,155 @@ test('duplicate names are refused, Enter ticks a box, and a reset or a removed b
   await expect(page.locator('[data-exclude]')).toHaveCount(8);
   await expect(boat1).toHaveValue('Rebase Rangers');
   await expect(boat1).toBeFocused();
+});
+
+test('a first run greets the TA with one note, and the default boats stay one click from casting', async ({ page }) => {
+  await page.goto('/');
+  const note = page.getByRole('complementary', { name: 'Every group gets a boat.' });
+  await expect(note).toBeVisible();
+  await expect(page.locator('[data-exclude]')).toHaveCount(8);
+  // The note never stands between the TA and the lever: one click casts the default eight.
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.getByRole('button', { name: 'Pause fishing' })).toBeVisible();
+  await expect(note).toBeHidden();
+  await page.reload();
+  await expect(note).toBeHidden();
+});
+
+test('Got it retires the note for good, and a browser that already has boats never sees it', async ({ page }) => {
+  await page.goto('/');
+  const note = page.getByRole('complementary', { name: 'Every group gets a boat.' });
+  await expect(note).toBeVisible();
+  // Still there after a reload: the first run lasts until the TA casts or says Got it.
+  await page.reload();
+  await expect(note).toBeVisible();
+  await page.getByRole('button', { name: 'Got it' }).click();
+  await expect(note).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Cast the lines' })).toBeFocused();
+  await page.reload();
+  await expect(note).toBeHidden();
+  // A browser from before the note: boats saved, but no first-run mark.
+  await page.evaluate(() => localStorage.removeItem('daily-catch-first-run'));
+  await page.reload();
+  await expect(note).toBeHidden();
+});
+
+test('How to play opens from the board: the ? plate, the ? key, and the first-run note', async ({ page }) => {
+  await page.goto('/');
+  const help = page.locator('#help-dialog');
+  await page.locator('#options-toggle').click();
+  await expect(page.locator('#options-panel').getByRole('button', { name: 'How to play' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'How to play' }).first().click();
+  await expect(help).toBeVisible();
+  await expect(help.getByRole('definition')).toContainText(['Open this guide from the board.']);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#help-tag')).toBeFocused();
+  await page.keyboard.press('Shift+?');
+  await expect(help).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('complementary', { name: 'Every group gets a boat.' }).getByRole('button', { name: 'How to play' }).click();
+  await expect(help).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Mid-round, the guide holds the lines while it's open.
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await page.keyboard.press('Shift+?');
+  await expect(help).toBeVisible();
+  await expect(page.locator('#pause-button')).toHaveAttribute('aria-label', 'Resume fishing');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Pause fishing' })).toBeVisible();
+});
+
+test('a pasted list names the boats within 2–12 groups and 32 characters, and can be undone', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Paste group names' }).click();
+  const list = page.getByRole('textbox', { name: 'Group names, one per line' });
+  const use = page.getByRole('button', { name: 'Use these names' });
+  const status = page.locator('#list-status');
+  // The list opens on the crew as it stands, selected, so one paste replaces it.
+  await expect(list).toBeFocused();
+  await expect(list).toHaveValue(Array.from({ length: 8 }, (_, i) => `Group 0${i + 1}`).join('\n'));
+  await expect(page.locator('#crew-list')).toBeHidden();
+  await list.fill(Array.from({ length: 13 }, (_, i) => `Team ${i + 1}`).join('\n'));
+  await expect(status).toHaveText('13 names, but the dock holds 12 boats. Take out 1.');
+  await expect(use).toBeDisabled();
+  await expect(page.locator('#list-gutter li.is-over')).toHaveText(['13']);
+  await list.fill('Solo');
+  await expect(status).toHaveText('One name so far. The dock needs at least 2 boats.');
+  await expect(use).toBeDisabled();
+  await list.fill('Rebase Rangers\n rebase  RANGERS ');
+  await expect(status).toHaveText('“Rebase Rangers” is on the list twice. Every boat needs its own name.');
+  await expect(use).toBeDisabled();
+  // Markers and blank lines drop out; a long name is cut at a word, and the list says so first.
+  await list.fill('1. Rebase Rangers\n\n2. Null Pointers\n3. Team 3: Alice Wong, Bob Li, Carol Chen\n• The Segfaults\n');
+  await expect(status).toHaveText('4 names, one boat each (4 fewer than now). Boat 03 runs past 32 characters and will sail as “Team 3: Alice Wong, Bob Li”.');
+  await expect(page.locator('#list-gutter li.is-flagged')).toHaveText(['03']);
+  await use.click();
+  await expect(page.locator('.boat-name')).toHaveText(['Rebase Rangers', 'Null Pointers', 'Team 3: Alice Wong, Bob Li', 'The Segfaults']);
+  await expect(page.getByRole('textbox', { name: 'Name for boat 3', exact: true })).toHaveValue('Team 3: Alice Wong, Bob Li');
+  await expect(page.locator('#toast')).toContainText('4 boats named from your list.');
+  await expect(page.getByRole('button', { name: 'Paste a list' })).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(page.locator('[data-exclude]')).toHaveCount(8);
+  await expect(page.locator('.boat-name').first()).toHaveText('Group 01');
+  // Ctrl/Cmd+Enter uses the list from the keyboard.
+  await page.getByRole('button', { name: 'Paste a list' }).click();
+  await list.fill('Alpha\nBravo');
+  await list.press('ControlOrMeta+Enter');
+  await expect(page.locator('.boat-name')).toHaveText(['Alpha', 'Bravo']);
+});
+
+test('a list pasted into a name field opens as a list, and Esc leaves the crew as it was', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#options-toggle').click();
+  const boat3 = page.getByRole('textbox', { name: 'Name for boat 3', exact: true });
+  await boat3.focus();
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'Alpha\nBravo\r\nCharlie\n');
+    document.activeElement.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  const list = page.getByRole('textbox', { name: 'Group names, one per line' });
+  // The boats above the field stay; the pasted lines take the rest.
+  await expect(list).toBeFocused();
+  // A textarea keeps \n line ends, whatever the clipboard used.
+  await expect(list).toHaveValue('Group 01\nGroup 02\nAlpha\nBravo\nCharlie');
+  await expect(page.locator('#list-status')).toHaveText('5 names, one boat each (3 fewer than now).');
+  // Esc steps back one layer: the list closes, Options stays open, and nothing changed.
+  await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
+  await expect(page.locator('#crew-list')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Paste a list' })).toBeFocused();
+  await expect(page.locator('[data-exclude]')).toHaveCount(8);
+  // A one-line paste is just a name.
+  await boat3.focus();
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'Solo\n');
+    document.activeElement.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(list).toBeHidden();
+});
+
+test('casting uses an open list, holds for one that cannot be used, and L reopens the last catch', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Paste group names' }).click();
+  const list = page.getByRole('textbox', { name: 'Group names, one per line' });
+  await list.fill('Alpha\nalpha');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('#results-dialog')).toBeHidden();
+  await expect(list).toBeVisible();
+  await expect(list).toBeFocused();
+  await expect(page.locator('#toast')).toContainText('The name list isn’t ready. Fix it or cancel it, then cast.');
+  await list.fill('Alpha\nBravo\nCharlie');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('#results-dialog')).toBeVisible();
+  await expect(page.locator('.catch-group > span:nth-child(2)')).toHaveText(['Alpha', 'Bravo', 'Charlie']);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#results-dialog')).toBeHidden();
+  await page.keyboard.press('l');
+  await expect(page.locator('#results-dialog')).toBeVisible();
+  await expect(page.locator('.result-heading .eyebrow')).toHaveText('The last catch');
 });

@@ -30,8 +30,10 @@ Not a spinner wheel or name-picker. The randomness is dramatized as a fishing de
 
 - 2–12 groups (default 8), renameable (max 32 chars, no two boats share a name), each with a fixed boat color from a 12-color set.
 - "Presented" checkbox per boat; Reset presented clears all; one remaining boat is supported.
-- Pause/resume, Reveal catch (instant, same result), View last catch, optional sound, fullscreen, How to play.
-- Keyboard: Space casts or pauses from anywhere but a name field; R reveals the catch; Enter marks the winner presented from the results (and ticks a focused box); Ctrl/⌘+Z undoes a reset, a removed boat or a mark; Escape closes dialogs/options.
+- Group names can be pasted as a list, one per line, within the same 2–12 and 32-character limits. Longer names are cut at a word, with a warning before they're used; a list with too few or too many names, or a name twice, can't be used until it's fixed.
+- Pause/resume, Reveal catch (instant, same result), View last catch, optional sound, fullscreen, How to play (a ? plate on the board, beside Options).
+- First run: a single dock note says what a boat is, offers the pasted list and points at How to play. The default eight boats stay one click from casting, and the first cast or "Got it" retires the note.
+- Keyboard: Space casts or pauses from anywhere but a name field; R reveals the catch; Enter marks the winner presented from the results (and ticks a focused box); L reopens the last catch; ? opens How to play; Ctrl/⌘+Z undoes a reset, a removed boat, a list or a mark; Ctrl/⌘+Enter uses a pasted list; Escape closes a list, then dialogs/options.
 - Reduced motion skips straight to the comparison.
 - Vanilla JS, Canvas 2D, CSS, Vite. No external assets, fonts, or runtime network requests. All scene art is drawn in code.
 - Fairness logic (randomizer.js, fishing.js) and its tests are product truth and must not change behavior.

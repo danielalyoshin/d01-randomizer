@@ -16,6 +16,7 @@ export function icon(name, size = 20) {
     anchor: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 10h8M3 13v2a9 9 0 0 0 18 0v-2M1 15l2-2 2 2m14 0 2-2 2 2"/>',
     reset: '<path d="M3 10a9 9 0 1 1 1 7M3 4v6h6"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v.1"/>',
+    list: '<path d="M9 6h12M9 12h12M9 18h12M3 6h2M3 12h2M3 18h2"/>',
     ruler: '<path d="M3 7h18v10H3zM7 7v4m5-4v6m5-6v4"/>',
     copy: '<rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
   };

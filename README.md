@@ -29,8 +29,10 @@ Deploy `dist/` to any static web host. No server, accounts, API keys, external a
 
 ## Using it in class
 
-- The game fills the page. Open **Options** in the upper right to edit your groups; the panel starts collapsed and closes when you cast.
-- Start with eight boats; use **Options** to rename groups, add up to twelve, or remove down to two.
+- The game fills the page. Open **Options** in the upper right to edit your groups; the panel starts collapsed and closes when you cast. The **?** beside it opens How to play.
+- The first time the game runs in a browser, a note at the dock explains the boats. Casting, or **Got it**, puts it away for good.
+- Start with eight boats, ready to cast; use **Options** to rename groups, add up to twelve, or remove down to two.
+- To name every group at once, choose **Paste a list** in **Options** (or **Paste group names** on the first-run note) and paste one name per line. Numbers and bullets copied from a list are dropped, and blank lines are skipped. A name over 32 characters is cut at a word, and the list tells you what it will be before you use it. Pasting several lines into a single name field opens the same list. A list needs 2–12 different names, and **Undo** puts the old boats back.
 - Click the name tag of any boat that should sit out, or tick it in **Options**. Presented boats stay visible at the dock, stamped PRESENTED.
 - **Cast the lines** starts a lively expedition, usually around 10–20 seconds. Pause/resume at any time or select **Reveal catch** to immediately see the same round's result.
 - Fish swim freely through a small shared school (20–36 fish, depending on the crew and scene width). Lines sway at different depths and hook whichever fish they touch, regardless of markings. Hooks search back through the water if they miss on the first descent. All participating boats catch one fish.
@@ -39,7 +41,7 @@ Deploy `dist/` to any static web host. No server, accounts, API keys, external a
 - Mark that group presented, then cast again for the next presentation.
 - One remaining boat is supported. Once everyone is excluded, **Options → Reset crew** unchecks all boxes without removing or renaming boats.
 - Group names, exclusions, and the latest catch are saved in this browser. **Options → View last catch** reopens the saved result. A private-browsing session may not preserve them.
-- Optional sound, fullscreen, and help controls are in **Options**. Space casts or pauses from anywhere but a name field, R reveals the catch, Enter marks the winner presented from the results, Ctrl/⌘+Z undoes a reset, removal or mark, and Escape dismisses dialogs or collapses the options panel. The same keys are listed in **How to play**. Reduced-motion preferences skip directly to the catch comparison.
+- Optional sound and fullscreen controls are in **Options**. Space casts or pauses from anywhere but a name field, R reveals the catch, Enter marks the winner presented from the results, L reopens the last catch, ? opens How to play, Ctrl/⌘+Z undoes a reset, removal, list or mark, Ctrl/⌘+Enter uses a pasted list, and Escape closes a list, dialogs or the options panel. The same keys are listed in **How to play**. Reduced-motion preferences skip directly to the catch comparison.
 
 ## Fairness
 

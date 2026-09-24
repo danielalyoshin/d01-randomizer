@@ -2,6 +2,7 @@ import '@fontsource-variable/big-shoulders/opsz.css';
 import '@fontsource-variable/archivo/wdth.css';
 import './style.css';
 import { COLORS, MIN_GROUPS, MAX_GROUPS, STORAGE_KEY, defaultGroups, restoreState, createExpedition, smallestCatch, formatLength } from './randomizer.js';
+import { MAX_NAME, cleanName, nameKey, readNameList, crewFromList } from './crew-list.js';
 import { icon } from './icons.js';
 import { fishArt } from './fish-art.js';
 import { Ocean } from './ocean.js';
@@ -13,12 +14,19 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&'
 const boatNumber = (index) => String(index + 1).padStart(2, '0');
 // No-break spaces keep the number with the first word, so a long name wraps after it, not before.
 const boatLabel = (index, name) => `${boatNumber(index)}\u00a0·\u00a0${name}`;
-// Names are compared as the room reads them: case and spacing don't make a new name.
-const cleanName = (name) => name.trim().replace(/\s+/g, ' ');
-const nameKey = (name) => cleanName(name).toLocaleLowerCase();
-const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
+// Chrome reports "macOS", older browsers "MacIntel".
+const MOD_KEY = /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
+const FIRST_RUN_KEY = 'daily-catch-first-run';
 let saved = null;
 try { saved = restoreState(localStorage.getItem(STORAGE_KEY)); } catch { /* Storage is optional. */ }
+// The dock note greets a browser that has never run the game, and stays until the first cast
+// or "Got it". A browser that already has boats saved isn't new here.
+let firstRun = !saved;
+try {
+  const seen = localStorage.getItem(FIRST_RUN_KEY);
+  firstRun = seen === 'open' || (!seen && !saved);
+  if (firstRun) localStorage.setItem(FIRST_RUN_KEY, 'open');
+} catch { /* Without storage, every visit is a first one. */ }
 let groups = saved?.groups || defaultGroups();
 let lastCatch = saved?.lastCatch || null;
 let catches = [];
@@ -34,6 +42,8 @@ let undoStep = null;
 let verdictIn = false;
 let pendingVerdict = null;
 let spaceTaken = false;
+// The crew as a pasted list: a draft in the Options panel until it's used or cancelled.
+let listing = false;
 
 $('#app').innerHTML = `
   <main class="app-shell">
@@ -43,22 +53,32 @@ $('#app').innerHTML = `
         <h1 class="masthead"><span>The Daily</span> Catch</h1>
         <div class="scene-status"><span class="status-dot"></span><span id="scene-label">AT THE DOCK</span></div>
       </div>
-      <details class="game-options" id="game-options">
-        <summary id="options-toggle">${bolt()}<span class="label">Options</span>${icon('chevron', 18)}</summary>
-        <div class="options-panel">
-          <div class="crew-heading"><h2 id="crew-title">Boats</h2><span class="count-badge" id="group-count">08</span></div>
-          <div class="crew-list" id="crew-list" role="group" aria-labelledby="crew-title"></div>
-          <p class="crew-error" id="crew-error" hidden></p>
-          <button class="add-button" id="add-group">${icon('plus', 18)} Add a boat <span id="capacity-label">8 / 12</span></button>
-          <p class="crew-tip">Tick a boat here, or click its name tag on the board, to mark it presented.</p>
-          <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Put every boat back in play">Reset presented</button></div>
-          <button class="last-catch-button text-button" id="last-catch-button" ${lastCatch ? '' : 'hidden'}>${icon('fish', 20)} View last catch ${icon('arrow', 18)}</button>
-          <div class="options-tools">
-            <button class="text-button" id="how-to">${icon('help', 20)} How to play</button>
-            <div class="scene-actions"><button class="icon-button" id="sound-toggle" aria-label="Turn sound on" aria-pressed="false" title="Turn sound on">${icon('muted', 19)}</button><button class="icon-button" id="fullscreen" aria-label="Enter fullscreen" title="Fullscreen">${icon('expand', 19)}</button></div>
+      <div class="scene-tools">
+        <button type="button" class="plate-button help-tag" id="help-tag" aria-label="How to play" aria-keyshortcuts="Shift+?" title="How to play (?)"><span class="label" aria-hidden="true">?</span></button>
+        <details class="game-options" id="game-options">
+          <summary id="options-toggle">${bolt()}<span class="label">Options</span>${icon('chevron', 18)}</summary>
+          <div class="options-panel" id="options-panel">
+            <div class="crew-heading"><h2 id="crew-title">Boats</h2><button type="button" class="text-button list-open" id="list-open">${icon('list', 18)} Paste a list</button><span class="count-badge" id="group-count">08</span></div>
+            <div class="crew-list" id="crew-list" role="group" aria-labelledby="crew-title"></div>
+            <div class="list-editor" id="list-editor" hidden>
+              <label class="sr-only" for="list-names">Group names, one per line</label>
+              <div class="list-sheet"><ol class="list-gutter" id="list-gutter" aria-hidden="true"></ol><textarea id="list-names" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="words" placeholder="Paste your group names here, one per line" aria-describedby="list-status list-help"></textarea></div>
+              <p class="list-status" id="list-status"></p>
+              <p class="list-help" id="list-help">${MIN_GROUPS} to ${MAX_GROUPS} groups, one per line, up to ${MAX_NAME} characters each. <kbd>${MOD_KEY}</kbd> <kbd>Enter</kbd> uses the list.</p>
+              <div class="list-actions"><button type="button" class="plate-button" id="list-apply" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Enter' : 'Control+Enter'}">${bolt()}<span class="label">Use these names</span></button><button type="button" class="text-button" id="list-cancel">Cancel</button></div>
+            </div>
+            <p class="crew-error" id="crew-error" hidden></p>
+            <button class="add-button" id="add-group">${icon('plus', 18)} Add a boat <span id="capacity-label">8 / 12</span></button>
+            <p class="crew-tip">Tick a boat here, or click its name tag on the board, to mark it presented.</p>
+            <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Put every boat back in play">Reset presented</button></div>
+            <button class="last-catch-button text-button" id="last-catch-button" aria-keyshortcuts="L" ${lastCatch ? '' : 'hidden'}>${icon('fish', 20)} View last catch ${icon('arrow', 18)}</button>
+            <div class="options-tools">
+              <span class="options-tools-label" aria-hidden="true">Sound · Fullscreen</span>
+              <div class="scene-actions"><button class="icon-button" id="sound-toggle" aria-label="Turn sound on" aria-pressed="false" title="Turn sound on">${icon('muted', 19)}</button><button class="icon-button" id="fullscreen" aria-label="Enter fullscreen" title="Fullscreen">${icon('expand', 19)}</button></div>
+            </div>
           </div>
-        </div>
-      </details>
+        </details>
+      </div>
       <div class="ocean-viewport" id="ocean-viewport">
         <div class="ocean-world" id="ocean-world">
           <canvas id="ocean" role="img" aria-label="Fishing boats above a fast-moving school of fish. Staggered hooks catch whichever fish they meet."></canvas>
@@ -70,6 +90,12 @@ $('#app').innerHTML = `
       <div class="scene-bottom">
         <span class="depth-gauge"><span class="gauge-key">Depth</span><span class="gauge-value"><span id="depth">0.0</span><small>m</small></span><span id="depth-label">SEA LEVEL</span></span>
         <div class="catch-feed" id="catch-feed" hidden><div class="catch-feed-heading"><span class="catch-feed-label">NO BITES YET</span><span class="catch-feed-count" id="catch-feed-count">0 / 8 HOOKED</span></div><strong id="catch-feed-title">Who’s getting a bite?</strong></div>
+        <aside class="dock-note" id="dock-note" aria-labelledby="dock-note-title" ${firstRun ? '' : 'hidden'}>
+          <div class="dock-note-head"><p class="eyebrow">First time at the dock?</p><button type="button" class="text-button" id="dock-note-done">Got it</button></div>
+          <h2 id="dock-note-title">Every group gets a boat.</h2>
+          <p>Cast right away with these, or paste your group names first, one per line. When a group has presented, click its name tag.</p>
+          <div class="dock-note-actions"><button type="button" class="plate-button" id="dock-note-paste">${bolt()}<span class="label">Paste group names</span></button><button type="button" class="text-button" id="dock-note-help"><kbd aria-hidden="true">?</kbd> How to play</button></div>
+        </aside>
       </div>
       <div class="boat-scroll-hint"><span>←</span> Scroll to see every boat <span>→</span></div>
       <div class="game-controls">
@@ -80,7 +106,7 @@ $('#app').innerHTML = `
     </section>
   </main>
 
-  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. Open Options to rename, add or remove boats (2–12).</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat or a mark.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page or Options.</dd></div></dl></section><p class="help-footnote">Boat names and who has presented are saved in this browser. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
+  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. In Options, rename, add or remove boats (2–12), or paste your whole list at once.</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>L</kbd></dt><dd>Open the last catch at the dock.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat, a list or a mark.</dd></div><div><dt><kbd>?</kbd></dt><dd>Open this guide from the board.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page, a list or Options.</dd></div></dl></section><p class="help-footnote">Boat names and who has presented are saved in this browser. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
 
   <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter" tabindex="-1"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Close" title="Close">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison" role="table" aria-label="Every catch, in boat order"></div><div class="results-actions"><button class="lever" id="mark-presented" aria-keyshortcuts="Enter">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" id="results-back" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
   <div class="toast" id="toast"><span id="toast-message" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="plate-button toast-undo" id="toast-undo" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Z' : 'Control+Z'}" hidden><span class="label">Undo</span></button></div>
@@ -190,6 +216,8 @@ function renderCrew() {
   $('#capacity-label').textContent = `${groups.length} / ${MAX_GROUPS}`;
   $('#ready-count').textContent = activeGroups().length;
   $('#add-group').disabled = fishing || groups.length >= MAX_GROUPS;
+  $('#list-open').disabled = fishing;
+  if (listing) renderList();
   $('#reset-presented').disabled = fishing || !groups.some(group => group.excluded);
   $('#last-catch-button').hidden = !lastCatch;
   $('#last-catch-button').disabled = fishing;
@@ -302,8 +330,126 @@ $('#reset-presented').addEventListener('click', () => {
   toast('Everyone’s back on board.', { before, done: 'Presented list restored.', refocus: () => $('#reset-presented') });
 });
 
+// Paste a list: the crew as lines of text, one boat per line, numbered in the gutter as the
+// board will number them. It stays a draft until it's used or cancelled, so a stray click
+// that folds Options away never loses a paste.
+function renderList() {
+  const area = $('#list-names');
+  const list = readNameList(area.value);
+  const count = list.names.length;
+  $('#list-gutter').innerHTML = list.lines.map(line => line.blank ? '<li></li>'
+    : `<li class="${line.number > MAX_GROUPS ? 'is-over' : line.cut || line.duplicate ? 'is-flagged' : ''}">${boatNumber(line.number - 1)}</li>`).join('');
+  $('.list-sheet').style.setProperty('--lines', Math.max(4, list.lines.length));
+  let message, error = false;
+  if (count < MIN_GROUPS) message = count ? 'One name so far. The dock needs at least 2 boats.' : 'Paste or type your group names, one per line.';
+  else if (count > MAX_GROUPS) { error = true; message = `${count} names, but the dock holds ${MAX_GROUPS} boats. Take out\u00a0${count - MAX_GROUPS}.`; }
+  else if (list.duplicate) { error = true; message = `“${list.duplicate}” is on the list twice. Every boat needs its own name.`; }
+  else {
+    const change = count - groups.length;
+    message = `${count} names, one boat each${change ? ` (${Math.abs(change)} ${change > 0 ? 'more' : 'fewer'} than now)` : ''}.`;
+    if (list.cut.length === 1) message += ` Boat ${boatNumber(list.cut[0].number - 1)} runs past ${MAX_NAME} characters and will sail as “${list.cut[0].name}”.`;
+    else if (list.cut.length) message += ` ${list.cut.length} names run past ${MAX_NAME} characters and will be cut at a word; their numbers are marked.`;
+  }
+  $('#list-status').textContent = message;
+  $('#list-status').classList.toggle('is-error', error);
+  $('#list-status').classList.toggle('is-warning', list.ok && list.cut.length > 0);
+  area.setAttribute('aria-invalid', String(error));
+  area.disabled = phase === 'fishing';
+  $('#list-apply').disabled = phase === 'fishing' || !list.ok;
+  return list;
+}
+
+// Opens the list on the crew as it stands, selected so one paste replaces it, or on a pasted
+// list with the caret at its end. A draft already open is picked up where it was left.
+function openList(text) {
+  if (phase !== 'idle') return;
+  const area = $('#list-names');
+  const fresh = !listing;
+  if (fresh) {
+    listing = true;
+    area.value = text ?? groups.map(group => group.name).join('\n');
+    $('#options-panel').classList.add('is-listing');
+    $('#list-editor').hidden = false;
+    $('#crew-error').hidden = true;
+  }
+  $('#game-options').open = true;
+  renderList();
+  area.focus();
+  if (fresh && text === undefined) area.select();
+  else if (fresh) area.setSelectionRange(area.value.length, area.value.length);
+  // The sheet scrolls, not the field: bring the caret's end of the list into view.
+  if (fresh) $('.list-sheet').scrollTop = text === undefined ? 0 : $('.list-sheet').scrollHeight;
+}
+
+function closeList() {
+  if (!listing) return;
+  const hadFocus = $('#list-editor').contains(document.activeElement);
+  listing = false;
+  $('#options-panel').classList.remove('is-listing');
+  $('#list-editor').hidden = true;
+  $('#list-names').value = '';
+  if (hadFocus) $('#list-open').focus({ preventScroll: true });
+}
+
+// Uses the list as the crew. Returns false while it can't be used; the editor stays open and says why.
+function useList({ casting = false } = {}) {
+  if (!listing || phase !== 'idle') return true;
+  const list = renderList();
+  if (!list.ok) {
+    $('#game-options').open = true;
+    $('#list-names').focus();
+    if (!casting) announce($('#list-status').textContent);
+    return false;
+  }
+  closeList();
+  if (list.names.length === groups.length && list.names.every((name, i) => name === groups[i].name)) return true;
+  const before = snapshot();
+  groups = crewFromList(groups, list.names);
+  persist(); renderCrew();
+  // A cast ends any undo offer, and the band already says how many boats are fishing.
+  if (!casting) toast(`${list.names.length} boats named from your list.`, { before, done: 'Boats back as they were.', refocus: () => $('#list-open') });
+  return true;
+}
+
+$('#list-open').addEventListener('click', () => openList());
+$('#list-names').addEventListener('input', renderList);
+$('#list-names').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); useList(); }
+});
+$('#list-apply').addEventListener('click', () => useList());
+$('#list-cancel').addEventListener('click', closeList);
+
+// A list pasted into a name field opens as a list: the boats above that field stay, and the
+// pasted lines take the rest, the way a paste fills down a spreadsheet column.
+$('#crew-list').addEventListener('paste', (event) => {
+  const input = event.target.closest('[data-name]');
+  const text = event.clipboardData?.getData('text/plain') || '';
+  if (!input || phase !== 'idle' || readNameList(text).names.length < MIN_GROUPS) return;
+  event.preventDefault();
+  const index = groups.findIndex(group => group.id === input.dataset.name);
+  openList([...groups.slice(0, index).map(group => group.name), text.replace(/\s+$/, '')].join('\n'));
+});
+
+// The dock note: the first run's one hint. Casting, or "Got it", retires it for good.
+function dismissNote() {
+  const note = $('#dock-note');
+  if (note.hidden) return;
+  const hadFocus = note.contains(document.activeElement);
+  note.hidden = true;
+  try { localStorage.setItem(FIRST_RUN_KEY, 'done'); } catch { /* It just greets again next time. */ }
+  if (hadFocus) $('#cast-button').focus({ preventScroll: true });
+}
+$('#dock-note-done').addEventListener('click', dismissNote);
+$('#dock-note-paste').addEventListener('click', () => openList());
+$('#dock-note-help').addEventListener('click', () => openHelp());
+
 function startRound() {
-  if (phase !== 'idle' || !activeGroups().length) return;
+  if (phase !== 'idle') return;
+  // A list left open is used as it stands, as an edited name field is. One that can't be used
+  // holds the cast, so a round never sails with names the TA meant to replace.
+  if (listing && !useList({ casting: true })) { toast('The name list isn’t ready. Fix it or cancel it, then cast.'); return; }
+  if (!activeGroups().length) return;
+  dismissNote();
   // Commit an edited name before taking a snapshot of the participating crew.
   document.activeElement?.blur();
   $('#game-options').open = false;
@@ -470,15 +616,18 @@ $('#mark-presented').addEventListener('click', markPresented);
 $('#cast-button').addEventListener('click', startRound);
 $('#pause-button').addEventListener('click', togglePause);
 $('#skip-button').addEventListener('click', finishRound);
-// Both open from inside Options; fold the panel first so it isn't left over the board
-// behind the dialog, and so closing the dialog hands focus back to the Options tag.
+// Fold Options first, so the panel isn't left over the board behind the dialog, and so
+// closing the dialog hands focus back to the Options tag when that's where it came from.
 $('#last-catch-button').addEventListener('click', () => { closeOptions(); showResults(true); });
-$('#how-to').addEventListener('click', () => {
+// How to play opens from the ? plate beside Options, the ? key, or the dock note.
+function openHelp() {
+  if ($('dialog[open]')) return;
   closeOptions();
   $('#help-dialog').showModal();
   // Paused after opening, so "Fishing paused." is spoken from inside the guide.
   if (phase === 'fishing' && !ocean.paused) { togglePause(); $('#help-dialog').dataset.resume = 'true'; }
-});
+}
+$('#help-tag').addEventListener('click', openHelp);
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.close}`).close()));
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', (event) => {
   if (event.target === dialog) {
@@ -539,8 +688,10 @@ function closeOptions() {
 document.addEventListener('click', (event) => {
   const options = $('#game-options');
   // Crew edits can replace the clicked row before this event reaches the document.
-  // Undo in the toast belongs to the panel's edits, so reaching for it keeps Options open.
-  const insidePanel = event.composedPath().some(node => node === options || node === $('#toast') || node instanceof HTMLDialogElement);
+  // Undo in the toast belongs to the panel's edits, so reaching for it keeps Options open,
+  // and the dock note's "Paste group names" is what opened it. The lever folds Options itself
+  // when it casts, and leaves it open when a name list holds the cast.
+  const insidePanel = event.composedPath().some(node => [options, $('#toast'), $('#dock-note'), $('#cast-actions')].includes(node) || node instanceof HTMLDialogElement);
   if (options.open && !insidePanel) closeOptions();
 });
 // A message about a name belongs to the open panel.
@@ -551,11 +702,17 @@ const isTextField = (el) => el instanceof Element && el.matches('textarea, [cont
 // The TA's keys. Space belongs to the game everywhere but a name field, so focus the room can't
 // see (the Options tag after Esc, a name tag or tick box after a click) never turns a cast into
 // a control opening on the projector. Enter presses what's focused, and ticks a Presented box.
+// ? opens How to play and L the last catch; Esc steps back one layer: a list, then Options.
 document.addEventListener('keydown', (event) => {
   const openDialog = $('dialog[open]');
   const typing = isTextField(event.target);
   // Autofill can send keydowns without a key.
   const key = (event.key || '').toLowerCase();
+  if (event.key === 'Escape' && listing && $('#game-options').open && !openDialog) {
+    event.preventDefault();
+    closeList();
+    return;
+  }
   if (event.key === 'Escape' && $('#game-options').open && !openDialog) {
     closeOptions();
     return;
@@ -585,6 +742,13 @@ document.addEventListener('keydown', (event) => {
   } else if (key === 'r' && phase === 'fishing') {
     event.preventDefault();
     finishRound();
+  } else if (event.key === '?') {
+    event.preventDefault();
+    openHelp();
+  } else if (key === 'l' && phase === 'idle' && lastCatch) {
+    event.preventDefault();
+    closeOptions();
+    showResults(true);
   }
 });
 // The Space that cast or paused must not also press whatever holds focus when it comes up.
