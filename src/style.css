@@ -237,11 +237,13 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .fairness-note strong { display: block; margin-bottom: 3px; color: var(--ink); font: 800 var(--t-title)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; }
 .help-footnote { margin: 14px 0 18px; font-size: var(--t-label); line-height: 1.6; color: var(--ink-3); }
 
-.results-dialog { width: min(800px, calc(100% - 28px)); padding: 26px 36px 22px 76px; }
-.result-heading { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: center; }
-.result-heading .eyebrow { grid-column: 1 / -1; justify-self: start; margin-bottom: 14px; }
+/* The reveal. Portrait and small screens get a bound page that scrolls; landscape screens
+   get a full-screen spread (see the orientation query below) that never needs to. */
+.results-dialog { width: min(1400px, calc(100% - 28px)); padding: 26px 36px 22px 76px; }
+.result-heading .eyebrow { margin-bottom: 14px; }
+.winner-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: center; }
 .winner-art { position: relative; width: 190px; height: 92px; }
-.winner-art::before { content: ''; position: absolute; left: 50%; top: 50%; width: 170px; aspect-ratio: 1; border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 9px, #11111124 9px 11px); transform: translate(-50%, -50%); }
+.winner-art::before { content: ''; position: absolute; left: 50%; top: 50%; width: 90%; aspect-ratio: 1; border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 9px, #11111124 9px 11px); transform: translate(-50%, -50%); }
 .winner-art > svg { position: relative; width: 100%; height: 100%; transform: rotate(-12deg); animation: fish-slam .5s .1s cubic-bezier(.16, 1, .3, 1) both; }
 .winner-copy { min-width: 0; }
 .next-presenter-tag { display: inline-flex; align-items: center; gap: 8px; color: var(--red); font: 900 var(--t-headline)/.9 var(--display); letter-spacing: .04em; text-transform: uppercase; text-shadow: 2px 2px 0 var(--ink); rotate: -6deg; transform-origin: left bottom; }
@@ -253,10 +255,15 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .comparison-heading { display: flex; justify-content: space-between; padding: 9px 2px 8px; border-bottom: 2px solid var(--ink); font: 800 var(--t-label)/1 var(--display); letter-spacing: .16em; text-transform: uppercase; }
 .catch-row { --fish: 58px; display: grid; grid-template-columns: minmax(170px, 38%) minmax(0, 1fr) 96px; gap: 18px; align-items: center; min-height: 48px; padding: 0 10px 0 0; border-bottom: 1px solid var(--ink); animation: row-slam .42s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 45ms + .22s); }
 .catch-row:last-of-type { border-bottom: 0; }
-.catch-group { display: flex; align-items: center; gap: 10px; min-width: 0; font: 800 var(--t-title)/1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
-.catch-group > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The number block holds the name's line; a long name wraps to a second line beside it.
+   The winner's SMALLEST stamp takes its own line under the name instead of squeezing it. */
+.catch-group { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 3px; min-width: 0; font: 800 var(--t-title)/1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
+.catch-group > span:nth-child(2) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; hyphens: auto; line-height: .9; }
 .catch-number { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; background: var(--ink); color: var(--stock); font: 900 var(--t-ui)/1 var(--display); font-variant-numeric: tabular-nums; }
-.smallest-badge { flex-shrink: 0; padding: 4px 7px 3px; background: var(--red); color: var(--ink); font: 900 var(--t-ui)/1 var(--display); letter-spacing: .08em; transform: rotate(-6deg); }
+/* The stamp tilts about its centre with clear space above, so its raised end never touches the name. */
+.winning-catch .catch-group { row-gap: 7px; padding-block: 3px; }
+.winning-catch .catch-number { grid-row: 1 / span 2; }
+.smallest-badge { grid-column: 2; justify-self: start; padding: 3px 7px 2px; background: var(--red); color: var(--ink); font: 900 var(--t-ui)/1 var(--display); letter-spacing: .08em; transform: rotate(-6deg); }
 .fish-comparison-track { position: relative; display: flex; align-items: center; width: 100%; height: 40px; background: linear-gradient(currentColor, currentColor) right bottom / 2px 8px no-repeat, repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px 10%) left bottom / 100% 5px no-repeat; }
 /* The tip marks the measured length; the fish fits inside even the shortest bar. */
 .comparison-fish { display: flex; align-items: center; width: calc(100% * var(--scale, 1)); }
@@ -264,16 +271,55 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .comparison-fish svg { display: block; flex: none; width: min(var(--fish), 100%); height: auto; aspect-ratio: 150 / 72; }
 .winning-catch .comparison-fish::before { background: var(--red); }
 .fish-length { font: 900 var(--t-numeral)/1 var(--display); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.fish-length small { margin-left: 2px; font-size: var(--t-label); font-weight: 800; }
+/* Units take the UI step, as on the depth gauge, so the winner's red "cm" stays large text. */
+.fish-length small { margin-left: 2px; font-size: var(--t-ui); font-weight: 800; }
 .catch-row.winning-catch { position: relative; isolation: isolate; background: var(--ink); color: var(--stock); }
 .winning-catch::before { content: ''; position: absolute; inset: 0 -8px; z-index: -1; background: var(--ink); }
 .winning-catch .catch-number { background: var(--red); color: var(--ink); }
 .winning-catch .fish-length { color: var(--red); }
 .comparison-scale { display: flex; justify-content: space-between; gap: 12px; padding: 8px 2px; border-top: 2px solid var(--ink); font: 800 var(--t-label)/1 var(--display); letter-spacing: .12em; text-transform: uppercase; }
 .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { min-height: 42px; }
-.results-actions { position: sticky; bottom: -22px; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 18px 24px; margin-top: 18px; padding: 16px 0 20px; border-top: 3px solid var(--ink); background: var(--speck), var(--grain), var(--stock); }
+.results-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 18px 24px; margin-top: 18px; padding-top: 18px; border-top: 3px solid var(--ink); }
 .results-actions :is(.lever, .plate-button) { font-size: var(--t-title); }
 .results-footnote { margin: 16px 0 0; text-align: center; font: 700 var(--t-label)/1.2 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+
+/* Landscape: the reveal is a full-screen spread. Verdict and actions on the left page, the
+   whole haul on the right. Rows start at 76px and give height back evenly until every boat
+   fits, so the count of boats and the height of the screen set the row size. */
+@media (orientation: landscape) and (min-width: 760px) and (min-height: 460px) {
+  .results-dialog { inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 14px 30px 18px 76px; }
+  .results-dialog[open] {
+    display: grid; grid-template-columns: minmax(300px, 4fr) minmax(0, 7fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: 'eyebrow close' 'verdict haul' 'actions haul' 'note haul'; column-gap: clamp(36px, 4vw, 72px); row-gap: 12px;
+  }
+  .results-dialog .dialog-close { position: static; grid-area: close; justify-self: end; align-self: center; }
+  .result-heading { display: contents; }
+  .result-heading .eyebrow { grid-area: eyebrow; align-self: center; justify-self: start; margin: 0; }
+  .winner-stage { grid-area: verdict; align-self: center; grid-template-columns: minmax(0, 1fr); justify-items: start; padding-bottom: 12px; }
+  .winner-art { width: clamp(130px, 24dvh, 230px); height: auto; aspect-ratio: 190 / 92; margin-bottom: clamp(14px, 3dvh, 30px); }
+  .result-heading h2 { font-size: clamp(44px, min(6vw, 10.5dvh), 82px); }
+  .catch-comparison { grid-area: haul; align-self: center; display: flex; flex-direction: column; min-height: 0; max-height: 100%; margin: 0; }
+  .comparison-heading, .comparison-scale { flex: none; }
+  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { flex: 0 1 76px; min-height: auto; grid-template-columns: minmax(180px, 34%) minmax(0, 1fr) 96px; }
+  .results-actions { grid-area: actions; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 16px; width: 100%; max-width: 440px; margin: 0; }
+  .results-actions :is(.lever, .plate-button) { justify-content: flex-start; white-space: normal; text-align: left; line-height: 1.02; }
+  .results-actions .label { text-wrap: balance; }
+  .results-actions svg:last-child { margin-left: auto; }
+  .results-footnote { grid-area: note; margin: 2px 0 0; text-align: left; text-wrap: balance; }
+}
+/* Short landscape screens (a 1024×500 projector): tighter chrome so eight rows keep their 40px ruler. */
+@media (orientation: landscape) and (min-width: 760px) and (min-height: 460px) and (max-height: 600px) {
+  .results-dialog { padding-top: 10px; padding-bottom: 12px; }
+  .results-dialog[open] { row-gap: 8px; }
+  .results-dialog .dialog-close { width: 36px; height: 36px; }
+  .comparison-heading { padding: 7px 2px 6px; }
+  .comparison-scale { padding: 6px 2px; }
+  .next-presenter-tag { font-size: var(--t-lever); }
+  .result-heading h2 { margin-bottom: 8px; }
+  .results-actions { padding-top: 12px; gap: 12px; }
+  .results-actions .lever { min-height: 52px; }
+  .results-actions .plate-button { min-height: 48px; }
+}
 
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 10; width: max-content; max-width: calc(100% - 32px); padding: 13px 20px 12px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; box-shadow: 5px 5px 0 var(--red); opacity: 0; pointer-events: none; transform: translate(-50%, 18px) rotate(-2deg); transition: opacity .2s, transform .28s cubic-bezier(.16, 1, .3, 1); }
 .toast.visible { opacity: 1; transform: translate(-50%, 0) rotate(-2deg); }
@@ -343,21 +389,22 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .help-dialog li { grid-template-columns: 40px minmax(0, 1fr); }
   .help-dialog li strong { font-size: var(--t-ui); }
   .results-dialog { padding: 22px 14px 18px 46px; }
-  .result-heading { grid-template-columns: minmax(0, 1fr); }
-  .winner-art { width: 150px; height: 70px; margin: -4px 0 4px; }
-  .winner-art::before { width: 130px; }
+  .winner-stage { grid-template-columns: minmax(0, 1fr); }
+  .winner-art { width: 150px; height: 70px; margin: -4px 0 12px; }
   .winner-copy p strong { font-size: var(--t-ui); }
   .comparison-heading, .comparison-scale { letter-spacing: .06em; }
-  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { --fish: 38px; grid-template-columns: minmax(0, 44%) minmax(0, 1fr) 58px; gap: 8px; min-height: 44px; padding-right: 6px; }
+  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { --fish: 38px; grid-template-columns: minmax(0, 44%) minmax(0, 1fr) 64px; gap: 8px; min-height: 44px; padding: 5px 6px 5px 0; }
   .fish-comparison-track { height: 32px; }
   .comparison-fish::before { height: 5px; }
-  .results-actions { bottom: -20px; padding: 14px 0 18px; }
   .winning-catch::before { inset-inline: -6px; }
-  .catch-group { flex-wrap: wrap; row-gap: 3px; gap: 6px; font-size: var(--t-ui); }
+  .catch-group { column-gap: 6px; row-gap: 4px; font-size: var(--t-ui); }
   .catch-number { width: 26px; height: 26px; }
-  .smallest-badge { padding: 3px 5px 2px; }
+  /* The page scrolls here, so names wrap in full; the stamp takes the whole cell width. */
+  .catch-group > span:nth-child(2) { display: block; -webkit-line-clamp: unset; line-clamp: none; }
+  .winning-catch .catch-number { grid-row: auto; }
+  .smallest-badge { grid-column: 1 / -1; padding: 3px 5px 2px; }
   .fish-length { font-size: var(--t-title); }
-  .results-actions { flex-direction: column; align-items: stretch; gap: 14px; margin-top: 18px; }
+  .results-actions { flex-direction: column; align-items: stretch; gap: 14px; margin-top: 18px; padding-top: 14px; }
   .results-actions .lever, .results-actions .plate-button { justify-content: flex-start; font-size: var(--t-title); line-height: 1.02; white-space: normal; text-align: left; }
   .results-actions svg:last-child { margin-left: auto; }
 }

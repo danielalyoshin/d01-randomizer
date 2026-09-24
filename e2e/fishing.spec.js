@@ -93,7 +93,10 @@ test('group editing, limits, reduced motion, and saved results work without HTML
   await page.locator('#options-toggle').click();
   await page.getByRole('button', { name: 'View last catch' }).click();
   await expect(page.locator('.catch-row')).toHaveCount(12);
+  await expect(page.locator('#crew-list')).toBeHidden();
   await page.keyboard.press('Escape');
+  await expect(page.locator('#options-toggle')).toBeFocused();
+  await page.locator('#options-toggle').click();
   for (let i = 0; i < 10; i++) await page.locator('[data-remove]').last().click();
   await expect(page.locator('[data-exclude]')).toHaveCount(2);
   await expect(page.locator('[data-remove]').first()).toBeDisabled();
@@ -114,4 +117,32 @@ test('mobile keeps the page within the viewport and every boat checkbox is reach
   await page.getByRole('button', { name: 'Reveal catch' }).click();
   await expect(page.locator('.catch-row')).toHaveCount(7);
   expect(await page.locator('#results-dialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
+});
+
+test('the reveal fits every row on common projector screens and Options folds away behind dialogs', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.locator('#options-toggle').click();
+  await page.getByRole('button', { name: 'How to play' }).click();
+  await expect(page.locator('#help-dialog')).toBeVisible();
+  await expect(page.locator('#crew-list')).toBeHidden();
+  await page.keyboard.press('Escape');
+  const everyRowFits = () => page.locator('#results-dialog').evaluate(dialog => {
+    const bottom = Math.min(innerHeight, dialog.getBoundingClientRect().bottom);
+    return dialog.scrollHeight <= dialog.clientHeight && [...dialog.querySelectorAll('.catch-row, .comparison-scale')].every(el => el.getBoundingClientRect().bottom <= bottom);
+  });
+  for (const [width, height] of [[1280, 720], [1024, 768], [1024, 500]]) {
+    await page.setViewportSize({ width, height });
+    await page.getByRole('button', { name: 'Cast the lines' }).click();
+    await expect(page.locator('.catch-row')).toHaveCount(8);
+    expect(await everyRowFits()).toBe(true);
+    await page.keyboard.press('Escape');
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('#options-toggle').click();
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add a group' }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('.catch-row')).toHaveCount(12);
+  expect(await everyRowFits()).toBe(true);
 });
