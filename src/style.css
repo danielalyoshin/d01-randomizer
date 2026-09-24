@@ -49,6 +49,8 @@ button svg, summary svg { flex-shrink: 0; }
 [hidden] { display: none !important; }
 ::selection { background: var(--red); color: var(--stock); }
 h1, h2 { margin: 0; font-family: var(--display); font-weight: 900; text-transform: uppercase; line-height: .86; letter-spacing: 0; }
+/* Measures verdict names at 100px (the display face is at its largest optical size by then). */
+.name-probe { position: absolute; top: 0; left: -9999px; visibility: hidden; white-space: pre; font: 900 100px/1 var(--display); text-transform: uppercase; pointer-events: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* Hardware */
@@ -161,6 +163,8 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .presented-label input:focus-visible { outline-offset: 2px; }
 .boat-label.excluded .boat-name { background: var(--stock); color: var(--ink-3); box-shadow: inset 0 0 0 2px var(--ink-3); text-decoration: line-through 2px; }
 .is-fishing .boat-labels { pointer-events: none; }
+/* Hauling home: the Presented tabs step aside so the hoisted catches hang in clear paper. */
+.is-hauling .presented-label { visibility: hidden; }
 
 /* LINES IN! — the cast slams onto the page at full weight, then flies off. */
 .cast-callout { display: none; position: absolute; z-index: 3; top: 40%; left: 50%; width: max-content; max-width: 92%; text-align: center; pointer-events: none; transform: translate(-50%, -50%) rotate(-15deg); }
@@ -238,38 +242,43 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .help-footnote { margin: 14px 0 18px; font-size: var(--t-label); line-height: 1.6; color: var(--ink-3); }
 
 /* The reveal. Portrait and small screens get a bound page that scrolls; landscape screens
-   get a full-screen spread (see the orientation query below) that never needs to. */
-.results-dialog { width: min(1400px, calc(100% - 28px)); padding: 26px 36px 22px 76px; }
+   get a full-screen spread (see the orientation query below) that never needs to.
+   These styles are the finished page; the staged entrance lives in "Evidence first" below. */
+.results-dialog { width: min(1400px, calc(100% - 28px)); padding: 26px 36px 22px 76px; overflow-x: hidden; }
 .result-heading .eyebrow { margin-bottom: 14px; }
 .winner-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: center; }
 .winner-art { position: relative; width: 190px; height: 92px; }
 .winner-art::before { content: ''; position: absolute; left: 50%; top: 50%; width: 90%; aspect-ratio: 1; border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 9px, #11111124 9px 11px); transform: translate(-50%, -50%); }
-.winner-art > svg { position: relative; width: 100%; height: 100%; transform: rotate(-12deg); animation: fish-slam .5s .1s cubic-bezier(.16, 1, .3, 1) both; }
+.winner-art > svg { position: relative; width: 100%; height: 100%; transform: rotate(-12deg); }
 .winner-copy { min-width: 0; }
 .next-presenter-tag { display: inline-flex; align-items: center; gap: 8px; color: var(--red); font: 900 var(--t-headline)/.9 var(--display); letter-spacing: .04em; text-transform: uppercase; text-shadow: 2px 2px 0 var(--ink); rotate: -6deg; transform-origin: left bottom; }
 .next-presenter-tag svg { filter: drop-shadow(2px 2px 0 var(--ink)); }
-.result-heading h2 { margin: 6px 0 12px; font-size: var(--t-display); overflow-wrap: anywhere; rotate: -6deg; transform-origin: left bottom; animation: word-slam .55s cubic-bezier(.16, 1, .3, 1) both; }
+/* The verdict tilts about its left middle, so a name set on two or three lines never swings into the spine. */
+.result-heading h2 { margin: 6px 0 12px; font-size: var(--t-display); overflow-wrap: anywhere; rotate: -6deg; transform-origin: left center; }
 .winner-copy p { margin: 0; font-size: var(--t-body); line-height: 1.35; color: var(--ink-2); }
 .winner-copy p strong { color: var(--red); font: 900 var(--t-lever)/1 var(--display); }
 .catch-comparison { margin-top: 22px; border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink); }
 .comparison-heading { display: flex; justify-content: space-between; padding: 9px 2px 8px; border-bottom: 2px solid var(--ink); font: 800 var(--t-label)/1 var(--display); letter-spacing: .16em; text-transform: uppercase; }
-.catch-row { --fish: 58px; display: grid; grid-template-columns: minmax(170px, 38%) minmax(0, 1fr) 96px; gap: 18px; align-items: center; min-height: 48px; padding: 0 10px 0 0; border-bottom: 1px solid var(--ink); animation: row-slam .42s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 45ms + .22s); }
+.catch-row { --fish: 58px; display: grid; grid-template-columns: minmax(170px, 38%) minmax(0, 1fr) 96px; gap: 18px; align-items: center; min-height: 48px; padding: 0 10px 0 0; border-bottom: 1px solid var(--ink); }
 .catch-row:last-of-type { border-bottom: 0; }
 /* The number block holds the name's line; a long name wraps to a second line beside it.
-   The winner's SMALLEST stamp takes its own line under the name instead of squeezing it. */
+   The winner's name cell is laid out like every other: its SMALLEST stamp sits on the ruler. */
 .catch-group { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 3px; min-width: 0; font: 800 var(--t-title)/1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
 .catch-group > span:nth-child(2) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; hyphens: auto; line-height: .9; }
 .catch-number { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; background: var(--ink); color: var(--stock); font: 900 var(--t-ui)/1 var(--display); font-variant-numeric: tabular-nums; }
-/* The stamp tilts about its centre with clear space above, so its raised end never touches the name. */
-.winning-catch .catch-group { row-gap: 7px; padding-block: 3px; }
-.winning-catch .catch-number { grid-row: 1 / span 2; }
-.smallest-badge { grid-column: 2; justify-self: start; padding: 3px 7px 2px; background: var(--red); color: var(--ink); font: 900 var(--t-ui)/1 var(--display); letter-spacing: .08em; transform: rotate(-6deg); }
+/* SMALLEST is stamped onto the empty ruler just past the winner's fish (main.js places it, over
+   the bar instead when the fish runs nearly full length). Out of flow, it never moves the row. */
+.smallest-badge { position: absolute; top: 50%; left: calc(var(--scale) * 100% + 18px); z-index: 1; padding: 4px 9px 3px; background: var(--red); color: var(--ink); font: 900 clamp(var(--t-ui), 1.6vw, var(--t-numeral))/1 var(--display); letter-spacing: .08em; white-space: nowrap; translate: 0 -50%; rotate: -6deg; box-shadow: 3px 3px 0 var(--ink); }
+.winning-catch .smallest-badge { box-shadow: 3px 3px 0 var(--stock); }
 .fish-comparison-track { position: relative; display: flex; align-items: center; width: 100%; height: 40px; background: linear-gradient(currentColor, currentColor) right bottom / 2px 8px no-repeat, repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px 10%) left bottom / 100% 5px no-repeat; }
 /* The tip marks the measured length; the fish fits inside even the shortest bar. */
-.comparison-fish { display: flex; align-items: center; width: calc(100% * var(--scale, 1)); }
+.comparison-fish { position: relative; display: flex; align-items: center; width: calc(100% * var(--scale, 1)); }
 .comparison-fish::before { content: ''; flex: 1; height: 6px; margin-right: -2px; background: currentColor; }
 .comparison-fish svg { display: block; flex: none; width: min(var(--fish), 100%); height: auto; aspect-ratio: 150 / 72; }
 .winning-catch .comparison-fish::before { background: var(--red); }
+/* The winner's row carries its fish twice: the plain print every row shares, and the red proof over it. */
+.winning-catch .comparison-fish svg:first-of-type { opacity: 0; }
+.winning-catch .comparison-fish svg + svg { position: absolute; top: 50%; right: 0; translate: 0 -50%; }
 .fish-length { font: 900 var(--t-numeral)/1 var(--display); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Units take the UI step, as on the depth gauge, so the winner's red "cm" stays large text. */
 .fish-length small { margin-left: 2px; font-size: var(--t-ui); font-weight: 800; }
@@ -289,15 +298,21 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 @media (orientation: landscape) and (min-width: 760px) and (min-height: 460px) {
   .results-dialog { inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 14px 30px 18px 76px; }
   .results-dialog[open] {
-    display: grid; grid-template-columns: minmax(300px, 4fr) minmax(0, 7fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
+    display: grid; grid-template-columns: minmax(300px, 5fr) minmax(0, 7fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
     grid-template-areas: 'eyebrow close' 'verdict haul' 'actions haul' 'note haul'; column-gap: clamp(36px, 4vw, 72px); row-gap: 12px;
   }
+  /* The spread never scrolls; while the name is shouted at 2.3× it must not flash a scrollbar either. */
+  .results-dialog.is-revealing { overflow: hidden; }
   .results-dialog .dialog-close { position: static; grid-area: close; justify-self: end; align-self: center; }
   .result-heading { display: contents; }
   .result-heading .eyebrow { grid-area: eyebrow; align-self: center; justify-self: start; margin: 0; }
-  .winner-stage { grid-area: verdict; align-self: center; grid-template-columns: minmax(0, 1fr); justify-items: start; padding-bottom: 12px; }
+  .winner-stage { grid-area: verdict; align-self: center; grid-template-columns: minmax(0, 1fr); justify-items: start; padding-bottom: 12px; container-type: inline-size; }
   .winner-art { width: clamp(130px, 24dvh, 230px); height: auto; aspect-ratio: 190 / 92; margin-bottom: clamp(14px, 3dvh, 30px); }
-  .result-heading h2 { font-size: clamp(44px, min(6vw, 10.5dvh), 82px); }
+  /* The verdict is the loudest type in the product, sized to answer the 168px LINES IN! shout.
+     It scales with the screen, then gives way to the column: main.js measures the name in ems,
+     so the longest word always fits on one line and a long name keeps to about three. */
+  .result-heading h2 { margin: 16px 0 22px; font-size: max(44px, min(168px, 8.4vw, 15.5dvh, 100cqi / var(--word-em, 4.5), 270cqi / var(--name-em, 4.5))); line-height: .84; }
+  .winner-copy { width: 100%; }
   .catch-comparison { grid-area: haul; align-self: center; display: flex; flex-direction: column; min-height: 0; max-height: 100%; margin: 0; }
   .comparison-heading, .comparison-scale { flex: none; }
   .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { flex: 0 1 76px; min-height: auto; grid-template-columns: minmax(180px, 34%) minmax(0, 1fr) 96px; }
@@ -320,6 +335,45 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .results-actions .lever { min-height: 52px; }
   .results-actions .plate-button { min-height: 48px; }
 }
+
+/* Evidence first. A fresh result is staged in beats so the room sees every catch before it
+   hears the winner: rows slam in by boat, a tape runs out along every ruler at one speed and
+   each length prints where its tape stops, SMALLEST stamps the shortest (only now does its row
+   ink over), and the name is shouted last. Nothing about the winner prints before the stamp.
+   Replayed results and reduced motion skip all of this and open on the finished page. */
+.results-dialog {
+  --slam: cubic-bezier(.16, 1, .3, 1);
+  --beat-rows: .08s;      /* first row lands */
+  --beat-row-span: .34s;  /* every row is in by then, however many boats */
+  --beat-tape: .5s;       /* tapes start running */
+  --beat-tape-span: .42s; /* time for a tape to run the full ruler */
+  --beat-stamp: 1s;
+  --beat-impact: calc(var(--beat-stamp) + .13s); /* the stamp hits; the winning row inks over */
+  --beat-verdict: 1.2s;
+  --beat-after: 1.5s;     /* the sentence and the actions */
+}
+.is-revealing .catch-row { animation: row-slam .34s var(--slam) calc(var(--beat-rows) + var(--i) * min(55ms, var(--beat-row-span) / max(1, var(--rows) - 1))) both; }
+.is-revealing .comparison-scale { animation: row-slam .34s var(--slam) calc(var(--beat-rows) + var(--beat-row-span)) both; }
+.is-revealing .comparison-fish { animation: tape-out calc(var(--scale) * var(--beat-tape-span)) linear var(--beat-tape) backwards; }
+/* Scaled entrances wait unprinted rather than parked at their first frame, which would
+   leave a 2× phantom widening the page while it waits. */
+.is-revealing .catch-row { --printed: calc(var(--beat-tape) + var(--scale) * var(--beat-tape-span)); }
+.is-revealing .fish-length { transform-origin: right center; animation: numeral-slam .32s var(--slam) var(--printed) forwards, unprinted var(--printed) step-end; }
+/* Until the stamp, the winning row wears the plain print of every other row. */
+.is-revealing .catch-row.winning-catch { animation: row-slam .34s var(--slam) calc(var(--beat-rows) + var(--i) * min(55ms, var(--beat-row-span) / max(1, var(--rows) - 1))) both, as-plain-row var(--beat-impact) step-end, thump .3s ease-out var(--beat-impact); }
+.is-revealing .winning-catch::before { animation: unprinted var(--beat-impact) step-end; }
+.is-revealing .winning-catch .catch-number { animation: as-plain-number var(--beat-impact) step-end; }
+.is-revealing .winning-catch .comparison-fish::before { animation: as-plain-bar var(--beat-impact) step-end; }
+.is-revealing .winning-catch .fish-length { animation: numeral-slam .32s var(--slam) var(--printed) forwards, unprinted var(--printed) step-end, as-plain-ink var(--beat-impact) step-end; }
+.is-revealing .winning-catch .comparison-fish svg:first-of-type { animation: as-shown var(--beat-impact) step-end; }
+.is-revealing .winning-catch .comparison-fish svg + svg { animation: unprinted var(--beat-impact) step-end; }
+.is-revealing .smallest-badge { animation: stamp .36s var(--slam) var(--beat-stamp) forwards, unprinted var(--beat-stamp) step-end; }
+/* The verdict: a cue, the shout, then its proof and the way on. */
+.is-revealing .next-presenter-tag { animation: slam-tag-in .3s var(--slam) calc(var(--beat-verdict) - .14s) both; }
+.is-revealing .result-heading h2 { animation: shout .8s var(--slam) var(--beat-verdict) forwards, unprinted var(--beat-verdict) step-end; }
+.is-revealing .winner-art { animation: unprinted calc(var(--beat-verdict) + .1s) step-end; }
+.is-revealing .winner-art > svg { animation: fish-slam .5s var(--slam) calc(var(--beat-verdict) + .1s) both; }
+.is-revealing :is(.winner-copy p, .results-actions, .results-footnote) { animation: print-in .28s var(--slam) var(--beat-after) both; }
 
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 10; width: max-content; max-width: calc(100% - 32px); padding: 13px 20px 12px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; box-shadow: 5px 5px 0 var(--red); opacity: 0; pointer-events: none; transform: translate(-50%, 18px) rotate(-2deg); transition: opacity .2s, transform .28s cubic-bezier(.16, 1, .3, 1); }
 .toast.visible { opacity: 1; transform: translate(-50%, 0) rotate(-2deg); }
@@ -344,11 +398,34 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   100% { opacity: 0; }
 }
 @keyframes page-slam { from { opacity: 0; transform: translateY(26px) rotate(-1.5deg) scale(.97); } to { opacity: 1; transform: none; } }
-@keyframes word-slam {
-  0% { opacity: 0; transform: translateY(-38px) skewX(-18deg); font-variation-settings: 'wght' 200; }
-  55% { opacity: 1; transform: translateY(3px) skewX(2deg); font-variation-settings: 'wght' 900; }
-  100% { transform: none; }
+@keyframes tape-out { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes numeral-slam {
+  0% { opacity: 0; visibility: hidden; transform: scale(1.7); font-variation-settings: 'wght' 300; }
+  55% { opacity: 1; visibility: visible; transform: scale(.95); font-variation-settings: 'wght' 900; }
+  100% { opacity: 1; transform: none; font-variation-settings: 'wght' 900; }
 }
+@keyframes stamp {
+  0% { opacity: 0; visibility: hidden; scale: 2.6; rotate: -14deg; }
+  40% { opacity: 1; visibility: visible; scale: .9; rotate: -4deg; }
+  65% { scale: 1.04; rotate: -6.5deg; }
+  100% { opacity: 1; scale: 1; rotate: -6deg; }
+}
+@keyframes thump { 0%, 100% { translate: 0 0; } 25% { translate: 4px 2px; } 55% { translate: -3px -1px; } 80% { translate: 1px 0; } }
+@keyframes shout {
+  0% { opacity: 0; visibility: hidden; transform: scale(2.3); font-variation-settings: 'wght' 200; }
+  22% { opacity: 1; visibility: visible; transform: scale(.94); font-variation-settings: 'wght' 900; }
+  34% { transform: scale(1.035); }
+  100% { opacity: 1; transform: none; font-variation-settings: 'wght' 900; }
+}
+@keyframes slam-tag-in { from { opacity: 0; visibility: hidden; transform: translateX(-40px) skewX(-20deg); } to { opacity: 1; transform: none; } }
+@keyframes print-in { from { opacity: 0; visibility: hidden; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* Holds: step-end keeps the first frame until the beat, then hands back to the finished style. */
+@keyframes unprinted { from { visibility: hidden; } }
+@keyframes as-shown { from { opacity: 1; } }
+@keyframes as-plain-row { from { background-color: transparent; color: var(--ink); } }
+@keyframes as-plain-number { from { background-color: var(--ink); color: var(--stock); } }
+@keyframes as-plain-bar { from { background-color: var(--ink); } }
+@keyframes as-plain-ink { from { color: var(--ink); } }
 @keyframes fish-slam { from { opacity: 0; transform: translateX(-60px) rotate(-30deg) scale(.6); } to { opacity: 1; transform: rotate(-12deg); } }
 @keyframes row-slam {
   0% { opacity: 0; transform: translateX(-44px) skewX(-14deg); }
@@ -393,7 +470,12 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .winner-art { width: 150px; height: 70px; margin: -4px 0 12px; }
   .winner-copy p strong { font-size: var(--t-ui); }
   .comparison-heading, .comparison-scale { letter-spacing: .06em; }
-  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { --fish: 38px; grid-template-columns: minmax(0, 44%) minmax(0, 1fr) 64px; gap: 8px; min-height: 44px; padding: 5px 6px 5px 0; }
+  /* Phones stack each row, name and length over a ruler the full width of the page, so the
+     catch is still drawn to a readable scale and the SMALLEST stamp has ruler to land on. */
+  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { --fish: 42px; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'group length' 'track track'; gap: 2px 10px; min-height: 0; padding: 8px 6px 6px 0; }
+  .catch-group { grid-area: group; }
+  .fish-comparison-track { grid-area: track; }
+  .fish-length { grid-area: length; }
   .fish-comparison-track { height: 32px; }
   .comparison-fish::before { height: 5px; }
   .winning-catch::before { inset-inline: -6px; }
@@ -401,8 +483,7 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .catch-number { width: 26px; height: 26px; }
   /* The page scrolls here, so names wrap in full; the stamp takes the whole cell width. */
   .catch-group > span:nth-child(2) { display: block; -webkit-line-clamp: unset; line-clamp: none; }
-  .winning-catch .catch-number { grid-row: auto; }
-  .smallest-badge { grid-column: 1 / -1; padding: 3px 5px 2px; }
+  .smallest-badge { padding: 3px 5px 2px; font-size: var(--t-ui); letter-spacing: .03em; }
   .fish-length { font-size: var(--t-title); }
   .results-actions { flex-direction: column; align-items: stretch; gap: 14px; margin-top: 18px; padding-top: 14px; }
   .results-actions .lever, .results-actions .plate-button { justify-content: flex-start; font-size: var(--t-title); line-height: 1.02; white-space: normal; text-align: left; }

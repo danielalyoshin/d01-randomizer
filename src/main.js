@@ -66,7 +66,7 @@ $('#app').innerHTML = `
 
   <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Open Options to rename, add, or remove groups. You can have 2–12 boats.</li><li><strong>Check off past presenters.</strong> Use the “Presented” checkbox above a boat to exclude it. The boat stays at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> The group with the smallest fish presents next. Mark them presented, then run a fresh round for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Each participating group has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><p class="help-footnote">Your crew and presented checkboxes are saved in this browser. Sound is optional. <kbd>Space</kbd> casts or pauses; <kbd>Esc</kbd> closes this guide. Reduced-motion settings reveal the catch immediately.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button></dialog>
 
-  <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Back to the boats">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison"></div><div class="results-actions"><button class="lever" id="mark-presented">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p></dialog>
+  <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Back to the boats">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison"></div><div class="results-actions"><button class="lever" id="mark-presented">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
   <div class="toast" id="toast" role="status"></div>
   <span class="sr-only" id="live-status" role="status" aria-live="polite" aria-atomic="true"></span>
 `;
@@ -97,8 +97,16 @@ const ocean = new Ocean($('#ocean'), {
     $('#catch-feed-count').textContent = `${caughtCount} / ${catches.length} HOOKED`;
     $('.catch-feed-label').textContent = caughtCount === catches.length ? 'REEL THEM IN' : 'FISH ON!';
     $('.game-card').style.setProperty('--catch-progress', `${caughtCount / catches.length * 100}%`);
+    $('.game-card').classList.toggle('is-hauling', caughtCount === catches.length);
     announce(`${fish.name} caught a fish. ${caughtCount} of ${catches.length} caught.`);
     playTone('catch');
+  },
+  onLanded() {
+    $('#scene-label').textContent = 'AT THE DOCK';
+    $('#control-title').textContent = 'All ashore. Measuring up…';
+    $('#control-subtitle').textContent = `${catches.length} of ${catches.length} fish landed · Smallest fish presents next.`;
+    $('.catch-feed-label').textContent = 'ALL ASHORE';
+    announce(`All ${catches.length} fish landed. Measuring the catch.`);
   },
   onFinish() { finishRound(); },
   onDepth(depth) {
@@ -226,7 +234,6 @@ function finishRound() {
   lastCatch = catches.map(({id, name, color, fishColor, length}) => ({id, name, color, fishColor, length}));
   persist();
   returnToDock();
-  playTone('finish');
   showResults(false);
 }
 
@@ -236,7 +243,7 @@ function returnToDock() {
   $('#cast-actions').hidden = false;
   $('#fishing-actions').hidden = true;
   $('#scene-label').textContent = 'AT THE DOCK';
-  $('.game-card').classList.remove('is-fishing', 'is-paused');
+  $('.game-card').classList.remove('is-fishing', 'is-paused', 'is-hauling');
   $('#catch-feed').hidden = true;
   $('#boat-labels').style.transform = '';
   $('#boat-labels').style.opacity = '';
@@ -253,20 +260,58 @@ function togglePause() {
   announce(ocean.paused ? 'Fishing paused.' : 'Fishing resumed.');
 }
 
+// A fresh result is staged evidence first (see "Evidence first" in style.css): the verdict is
+// announced and sounded when the name lands. A replayed result, or reduced motion, opens finished.
 function showResults(previous = false) {
   if (!lastCatch || phase === 'fishing') return;
   resultIsPrevious = previous;
   const winner = smallestCatch(lastCatch);
   const largest = Math.max(...lastCatch.map(fish => fish.length));
   const boatNumber = (id, i) => String((groups.findIndex(group => group.id === id) + 1 || i + 1)).padStart(2, '0');
-  $('#result-heading').innerHTML = `<p class="eyebrow">${previous ? 'The last catch' : 'The catch is in'}</p><div class="winner-stage"><div class="winner-art">${fishArt(winner.fishColor, { red: true, detail: true })}</div><div class="winner-copy"><span class="next-presenter-tag">${icon('fish', 18)} Next to present</span><h2>${escapeHtml(winner.name)}</h2><p>At <strong>${formatLength(winner.length)} cm</strong>, the smallest catch takes the floor.</p></div></div>`;
-  $('#catch-comparison').innerHTML = `<div class="comparison-heading"><span>The day’s haul</span><span>Fish length</span></div>${lastCatch.map((fish, i) => `<div class="catch-row ${fish.id === winner.id ? 'winning-catch' : ''}" style="--i:${i}"><div class="catch-group"><span class="catch-number">${boatNumber(fish.id, i)}</span><span>${escapeHtml(fish.name)}</span>${fish.id === winner.id ? '<span class="smallest-badge">SMALLEST</span>' : ''}</div><div class="fish-comparison-track"><div class="comparison-fish" style="--scale:${fish.length / largest}">${fishArt(fish.fishColor, { red: fish.id === winner.id })}</div></div><span class="fish-length">${formatLength(fish.length)} <small>cm</small></span></div>`).join('')}<div class="comparison-scale"><span>0</span><span>Lengths drawn to scale</span><span>${formatLength(largest)} cm</span></div>`;
+  $('#result-heading').innerHTML = `<p class="eyebrow">${previous ? 'The last catch' : 'The catch is in'}</p><div class="winner-stage"><div class="winner-art">${fishArt(winner.fishColor, { red: true, detail: true })}</div><div class="winner-copy"><span class="next-presenter-tag">${icon('fish', 18)} Next to present</span><h2 style="--word-em:${Math.max(3, ...winner.name.split(/\s+/).map(nameEm))};--name-em:${Math.max(3, nameEm(winner.name))}">${escapeHtml(winner.name)}</h2><p>At <strong>${formatLength(winner.length)} cm</strong>, the smallest catch takes the floor.</p></div></div>`;
+  // Every row prints alike; the winner's second fish is its red proof, held back until the stamp.
+  $('#catch-comparison').style.setProperty('--rows', lastCatch.length);
+  $('#catch-comparison').innerHTML = `<div class="comparison-heading"><span>The day’s haul</span><span>Fish length</span></div>${lastCatch.map((fish, i) => `<div class="catch-row ${fish.id === winner.id ? 'winning-catch' : ''}" style="--i:${i};--scale:${fish.length / largest}"><div class="catch-group"><span class="catch-number">${boatNumber(fish.id, i)}</span><span>${escapeHtml(fish.name)}</span></div><div class="fish-comparison-track"><div class="comparison-fish">${fishArt(fish.fishColor)}${fish.id === winner.id ? fishArt(fish.fishColor, { red: true }) : ''}</div>${fish.id === winner.id ? '<span class="smallest-badge">SMALLEST</span>' : ''}</div><span class="fish-length">${formatLength(fish.length)} <small>cm</small></span></div>`).join('')}<div class="comparison-scale"><span>0</span><span>Lengths drawn to scale</span><span>${formatLength(largest)} cm</span></div>`;
   const group = groups.find(group => group.id === winner.id);
   $('#mark-presented').disabled = !group || group.excluded;
   $('#mark-presented').innerHTML = `${bolt()}<span class="label">${group?.excluded ? 'Already marked presented' : 'Mark presented & return'}</span>${icon('check', 22)}`;
-  $('#results-dialog').showModal();
-  announce(`${previous ? 'Last round: ' : ''}${winner.name} presents next with the smallest fish at ${formatLength(winner.length)} centimetres.`);
+  const dialog = $('#results-dialog');
+  const staged = !previous && !ocean.reducedMotion.matches;
+  dialog.classList.toggle('is-revealing', staged);
+  $('#results-status').textContent = '';
+  dialog.showModal();
+  placeStamp();
+  const verdict = () => {
+    $('#results-status').textContent = `${previous ? 'Last round: ' : ''}${winner.name} presents next with the smallest fish at ${formatLength(winner.length)} centimetres.`;
+    if (!previous) playTone('finish');
+  };
+  if (staged) $('.result-heading h2').addEventListener('animationstart', (event) => { if (event.animationName === 'shout') verdict(); });
+  else setTimeout(verdict, 150);
 }
+
+// The last beat prints the footnote; the finished page is the same styles without the staging.
+$('.results-footnote').addEventListener('animationend', () => $('#results-dialog').classList.remove('is-revealing'));
+
+// Width of a name set in the verdict's wood type, in ems, so CSS can size it to its column.
+const nameProbe = document.body.appendChild(Object.assign(document.createElement('span'), { className: 'name-probe' }));
+function nameEm(text) {
+  nameProbe.textContent = text;
+  return nameProbe.getBoundingClientRect().width / 100;
+}
+
+// SMALLEST stamps onto the empty ruler past the winner's fish, or over its bar when the
+// catch runs nearly the full length, and never past the ruler's end. It is positioned out
+// of flow, so the winning row is laid out exactly like every other row until the stamp lands.
+function placeStamp() {
+  const row = $('.winning-catch'), stamp = row?.querySelector('.smallest-badge');
+  if (!stamp || !row.offsetWidth) return;
+  const width = row.querySelector('.fish-comparison-track').clientWidth, tip = width * parseFloat(row.style.getPropertyValue('--scale'));
+  const fish = parseFloat(getComputedStyle(row.querySelector('.comparison-fish svg')).width), gap = Math.min(18, width * 0.06);
+  const after = tip + gap, before = tip - fish - gap - stamp.offsetWidth;
+  const left = after + stamp.offsetWidth <= width ? after : before >= 0 ? before : Math.max(0, width - stamp.offsetWidth);
+  stamp.style.left = `${left}px`;
+}
+new ResizeObserver(placeStamp).observe($('#catch-comparison'));
 
 $('#mark-presented').addEventListener('click', () => {
   if (!lastCatch) return;

@@ -143,7 +143,7 @@ The derby is a machine-bound futurist book: a cream spread fixed to its spine wi
 
 The system is built for a projector in a lit tutorial room. That means a cream ground rather than a dark one, heavy ink, and a scale the back row can read: boat names at 22px, hook plates with 25px numerals, fishing lines drawn 2.4 to 3.6px. Density is low and loud. Few words, set very large, in condensed caps.
 
-Motion is percussive. Type arrives slammed: it lands oversized and light, snaps to full weight, overshoots once and settles. The loudness of a catch follows the order of catches, never the size of the fish, so the animation can never hint at the result. Reduced motion turns every slam, shake and drift off. The system rejects two things: the glossy candy-button mobile game and the neon arcade.
+Motion is percussive. Type arrives slammed: it lands oversized and light, snaps to full weight, overshoots once and settles. The loudness of a catch follows the order of catches, never the size of the fish, so the animation can never hint at the result. The reveal runs evidence first: the catches hang at the dock, the rows and rulers print, SMALLEST stamps, and only then is the name shouted. Reduced motion turns every slam, shake and drift off. The system rejects two things: the glossy candy-button mobile game and the neon arcade.
 
 **Key Characteristics:**
 - Two inks plus red: cream stock, type black, one mechanical red.
@@ -184,12 +184,12 @@ A two-ink letterpress palette on warm cream stock, with a single mechanical red 
 **Character:** Big Shoulders is the wood type: condensed, uppercase, slammed to 900 and tilted. Archivo, narrowed to 88%, is the typewriter caption underneath it and is kept to sentences that explain. Both are self-hosted through @fontsource-variable; nothing loads from the network at runtime.
 
 ### Hierarchy
-- **Display** (900, clamp(44px, 6vw, 82px), 0.86): The verdict name in the results and the help title. Uppercase, rotated -6° (help title -4°), pivoting on the bottom-left corner. The cast callout is the one larger shout at clamp(76px, 11vw, 168px), rotated -15°. Help step numerals use a fixed 52px display step.
+- **Display** (900, clamp(44px, 6vw, 82px), 0.86): The verdict name on portrait pages and the help title. Uppercase, rotated -6° (help title -4°). The help title pivots on its bottom-left corner; the verdict pivots on its left middle, so a name on two or three lines never swings into the spine. On the landscape spread the verdict grows with the screen to min(168px, 8.4vw, 15.5dvh), about 161px on a 1920×1080 projector, and steps down only as far as its longest word needs to fit the column on one line (a long name keeps to about three). The cast callout is the other shout at clamp(76px, 11vw, 168px), rotated -15°. Help step numerals use a fixed 52px display step.
 - **Headline** (900, clamp(30px, 3vw, 48px), 0.9): The control message on the black band, the masthead and the red "Next to present" overprint above the verdict.
 - **Lever** (900, 26px): Lever labels. The band's CAST lever steps up to the numeral size (30px).
 - **Title** (800, 22px, 1): Boat names, plate labels, crew and result group names, step titles, the catch-feed line, toasts.
 - **Numeral** (900, 30px, tabular figures): Fish lengths and the depth gauge. Units drop to the label or UI step at 800. The crew heading in the Options panel also sits at this fixed 30px step rather than the fluid headline.
-- **UI** (800, 19px, 0.04em): Text buttons, crew footer, status tag, spine legend, number blocks, the SMALLEST stamp, the catch-feed label, the depth label. 19px is the smallest step allowed to carry red-on-black or black-on-red type: at weight 800+ it counts as large text, which the 3.7:1 pairing passes.
+- **UI** (800, 19px, 0.04em): Text buttons, crew footer, status tag, spine legend, number blocks, the SMALLEST stamp (which grows to 30px on projector screens), the catch-feed label, the depth label. 19px is the smallest step allowed to carry red-on-black or black-on-red type: at weight 800+ it counts as large text, which the 3.7:1 pairing passes.
 - **Label** (800, 14px, 0.16em tracking, uppercase): Eyebrow tags, gauge keys, table headings, the scroll hint.
 - **Body** (Archivo 400–600, 16px, 1.4–1.5): Help steps, the fairness note, the winner sentence; fine print (tips, help footnote) drops to the 14px label step. Short lines only; never used for anything the back row needs to read.
 
@@ -208,7 +208,7 @@ HUD plates float over the canvas at fixed corners. The masthead sits top-left an
 
 Spacing is tight and irregular in the way printed matter is. The recurring steps are 6px, 12px, 14px and 18px, and padding is optically corrected (for example 5px on top and 4px underneath caps).
 
-Responsive behaviour. At 900px or narrower, band copy steps down. At 600px or narrower, the spine and status tag drop away, the card goes borderless, the band stacks with a full-width lever, and the cast callout steepens to -24°. Boat name tags, the Options tag, help step titles and result group names step down to the 19px UI size, and the depth gauge keeps only its number. Dialog spines narrow to 30px and results rows tighten. At a height of 520px or less, the spine drops and the band stays in a single row.
+Responsive behaviour. At 900px or narrower, band copy steps down. At 600px or narrower, the spine and status tag drop away, the card goes borderless, the band stacks with a full-width lever, and the cast callout steepens to -24°. Boat name tags, the Options tag, help step titles and result group names step down to the 19px UI size, and the depth gauge keeps only its number. Dialog spines narrow to 30px, and each results row stacks its name and length over a full-width ruler. At a height of 520px or less, the spine drops and the band stays in a single row.
 
 ## Elevation & Depth
 
@@ -274,12 +274,16 @@ Each page hangs on a spine: a 46px shaded gutter behind a 3px black rule, with t
 A black plate with two bolts and a notched corner. It shows a red caps label, a tabular count, the latest catch in 22px title caps, and a segmented gauge: 11px red segments with 3px gaps that fill from the left as catches land.
 
 ### To-Scale Haul (signature)
-The results table. Each row has a number block and name, then a measuring bar that ends in a printed fish drawn to scale against the largest catch, over a tick ruler every 10%, then the length. The smallest catch's row inverts to black; its bar, fish and length turn red, and a tilted red SMALLEST stamp appears. Rows slam in from the left with a 45ms stagger.
+The results table. Each row has a number block and name, then a measuring bar that ends in a printed fish drawn to scale against the largest catch, over a tick ruler every 10%, then the length. A tilted red SMALLEST stamp lands on the empty ruler just past the winner's fish (over its bar if the fish runs nearly full length, and never past the ruler's end). It sits out of flow, so the winning row is laid out exactly like every other. On the stamp, the smallest catch's row inverts to black and its number, bar, fish and length turn red.
+
+A fresh result is staged in about 1.5s, evidence before verdict. The rows slam in by boat order within 340ms. A tape then runs out along every ruler at one speed, and each length prints where its tape stops. SMALLEST stamps at 1s and the row inks over on impact. "Next to present" slides in, and the name is shouted last at 1.2s; that moment announces the verdict to screen readers and plays the finish tone. The sentence and the actions print at 1.5s. Until the stamp, nothing about the winner is on the page. A replayed result ("View last catch") and reduced motion open on the finished page.
 
 The bar and fish together occupy the catch's exact proportion of the full ruler. Fish shrink to fit short measurements; they never add a fixed length to the scale. The winner's ink band extends behind the row without shifting its ruler or numerals.
 
 ### Engraved Board (signature)
 The Canvas 2D scene. The sea is broken lines of force: rows every 24px of solid-ink strokes 64 to 156px long, with open paper between them. They thicken with depth from 1.1 to 2.4px, staying under the fishing lines, bow slightly and drift slowly; the solid black waterline band anchors the surface. Headlands and seabed are hatched, and a red sun has a misregistered ink ring. Boats are solid black hulls with cream numerals. Boats that have presented stay at the dock printed at 28% ink, with no line in the water. A hooked line turns red and grows from 2.6 to 3.6px; the hook plate turns red, and a black-offset red shout slams in with a shockwave and radiating lines. Each catch shakes the board up to 4.5px.
+
+Once every hook has a fish, the Presented tabs step aside and whatever is still on a line is reeled home 2.5× faster after its 0.6s struggle. This is presentation only; the catch itself is fishing.js's. Each landed catch swings up to hang head-first from its boat's hoisted rod, in plain ink with its paper reserve, every catch printed alike. The board holds on that dock for 0.9s before the results open.
 
 Fish share one code-drawn engraving across the canvas and result illustrations: a tapered body, forked tail, swept fins, small ringed eye and curved gill. The six ink markings remain recognizable when the winner is overprinted red. Fine fin rays and contour cuts appear on the large verdict fish and larger swimmers; small comparison fish retain the silhouette and markings with simpler linework. Tail motion pivots at the body join, and the mouth stays aligned with the simulated contact point.
 

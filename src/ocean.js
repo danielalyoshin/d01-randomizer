@@ -10,6 +10,11 @@ const SHOUTS = ['BITE!', 'FISH ON!', 'SNAP!', 'WHAM!', 'CHOMP!', 'SPLASH!'];
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+// The haul home is presentation only: once every hook has a fish, whatever is still on a line
+// is reeled in this much faster. A catch's opening struggle always keeps its own pace.
+const STRUGGLE = 0.6, HAUL_RUSH = 2.5;
+// Landed catches hang from hoisted rods for this long before the reveal; a rod takes HOIST to lift.
+const DOCK_HOLD = 0.9, HOIST = 0.35;
 
 // Where a line drawn by `at(t)` crosses the waterline, if it does.
 function surfaceCrossing(at) {
@@ -26,10 +31,11 @@ function surfaceCrossing(at) {
 }
 
 export class Ocean {
-  constructor(canvas, { onCatch, onFinish, onDepth }) {
+  constructor(canvas, { onCatch, onLanded, onFinish, onDepth }) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onCatch = onCatch;
+    this.onLanded = onLanded;
     this.onFinish = onFinish;
     this.onDepth = onDepth;
     this.groups = [];
@@ -92,6 +98,7 @@ export class Ocean {
     this.impact = 0;
     this.time = 0;
     this.camera = 0;
+    this.ashore = false;
     this.running = true;
     this.paused = false;
   }
@@ -132,7 +139,7 @@ export class Ocean {
     while (this.accumulator >= STEP) {
       const previousTime = this.simulation.time;
       for (const fish of this.simulation.step()) {
-        fish.catchTime = this.time;
+        fish.reel = 0;
         this.impact = 1;
         // Loudness follows catch order (the last catch shouts loudest), never fish length.
         const order = this.simulation.hooks.length > 1 ? (this.simulation.catches.length - 1) / (this.simulation.hooks.length - 1) : 1;
@@ -147,10 +154,20 @@ export class Ocean {
       }
       this.accumulator -= STEP;
     }
+    const complete = this.simulation.complete;
+    for (const hook of this.simulation.hooks) {
+      const fish = hook.fish;
+      if (!fish) continue;
+      fish.reel += dt * (complete && fish.reel >= STRUGGLE ? HAUL_RUSH : 1);
+      if (fish.landedAt === undefined && fish.reel >= this.reelDuration(fish)) {
+        fish.landedAt = this.time;
+        this.spray(this.simulation.width * hook.fraction + 14, 207, INK, 10);
+      }
+    }
     const searching = this.simulation.hooks.filter(hook => !hook.fish);
     const depth = searching.length ? Math.max(...searching.map(hook => hookPosition(hook, this.simulation.time, this.simulation.width).y)) : SURFACE;
     const target = Math.max(0, depth - Math.max(240, this.height * 0.55));
-    this.camera = lerp(this.camera, target, 1 - Math.exp(-dt * (searching.length ? 2.5 : 1.6)));
+    this.camera = lerp(this.camera, target, 1 - Math.exp(-dt * (searching.length ? 2.5 : 3.2)));
     this.onDepth(Math.max(0, (searching.length ? depth - SURFACE : this.camera) / 50));
     for (const particle of this.particles) {
       particle.life -= dt;
@@ -161,10 +178,22 @@ export class Ocean {
     }
     this.particles = this.particles.filter(particle => particle.life > 0);
     this.bursts = this.bursts.filter(burst => this.time - burst.time < 1.3);
-    if (this.simulation.complete && this.simulation.catches.every(fish => this.time - fish.catchTime > this.reelDuration(fish) + 0.6)) {
-      this.running = false;
-      this.onFinish();
+    const landings = this.simulation.catches.map(fish => fish.landedAt);
+    if (complete && landings.every(landedAt => landedAt !== undefined)) {
+      if (!this.ashore) { this.ashore = true; this.onLanded(); }
+      if (this.time - Math.max(...landings) >= DOCK_HOLD) {
+        this.running = false;
+        this.onFinish();
+      }
     }
+  }
+
+  // Where a boat's rod tip is on screen, following its bob and roll. `lift` hoists a landed catch.
+  rodTip(lane, lift, fighting) {
+    const t = this.ambientTime, scale = this.boatScale();
+    const angle = Math.sin(t * 2 + lane) * 0.055 + (fighting ? Math.sin(t * 16) * 0.035 : 0);
+    const x = lerp(47, 56, lift) * scale, y = lerp(-22, -66, lift) * scale;
+    return { x: this.laneX(lane) + x * Math.cos(angle) - y * Math.sin(angle), y: 199 + Math.sin(t * 2 + lane) * 4 + x * Math.sin(angle) + y * Math.cos(angle) };
   }
 
   reelDuration(fish) { return 2.3 + (fish.y - SURFACE) / 310; }
@@ -316,7 +345,8 @@ export class Ocean {
   drawBoat(x, y, index, t) {
     const c = this.ctx, scale = this.boatScale();
     const hooked = this.simulation?.hooks.find(hook => hook.lane === index)?.fish;
-    const fighting = hooked && this.time - hooked.catchTime < this.reelDuration(hooked);
+    const fighting = hooked && hooked.landedAt === undefined;
+    const lift = hooked?.landedAt !== undefined ? ease((this.time - hooked.landedAt) / HOIST) : 0;
     c.save(); c.translate(x, y); c.scale(scale, scale); c.rotate(Math.sin(t * 2 + index) * 0.055 + (fighting ? Math.sin(t * 16) * 0.035 : 0));
     // Wake.
     c.strokeStyle = INK; c.lineWidth = 1.6;
@@ -336,9 +366,9 @@ export class Ocean {
     c.strokeStyle = STOCK; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-33, -4.5); c.lineTo(-14, -4.5); c.moveTo(20, -4.5); c.lineTo(33, -4.5); c.stroke();
     c.fillStyle = STOCK; c.font = `900 15px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(String(index + 1).padStart(2, '0'), 3, 1.5);
-    // Rod bends out over the right side.
+    // Rod bends out over the right side, or stands up to hoist a landed catch.
     c.strokeStyle = INK; c.lineWidth = 2.2;
-    c.beginPath(); c.moveTo(17, -10); c.quadraticCurveTo(39, fighting ? -32 : -53, 47, -22); c.stroke();
+    c.beginPath(); c.moveTo(17, -10); c.quadraticCurveTo(lerp(39, 24, lift), fighting ? -32 : lerp(-53, -76, lift), lerp(47, 56, lift), lerp(-22, -66, lift)); c.stroke();
     c.fillStyle = STOCK; c.beginPath(); c.arc(20, -14, 3.6, 0, TAU); c.fill(); c.lineWidth = 1.8; c.stroke();
     c.restore();
   }
@@ -422,22 +452,15 @@ export class Ocean {
       const fish = hook.fish;
       const position = hookPosition(hook, simulation.time, simulation.width);
       let x = this.screenX(position.x), y = position.y, reelProgress = 0, struggle = 0;
+      if (fish?.landedAt !== undefined) { this.drawLanded(fish); continue; }
       if (fish) {
-        const elapsed = this.time - fish.catchTime;
-        reelProgress = Math.min(1, Math.max(0, elapsed - 0.6) / (this.reelDuration(fish) - 0.6));
+        const elapsed = fish.reel;
+        reelProgress = Math.min(1, Math.max(0, elapsed - STRUGGLE) / (this.reelDuration(fish) - STRUGGLE));
         struggle = (1 - reelProgress) * Math.sin(elapsed * 25 + fish.lane);
         x = lerp(this.screenX(fish.x), this.laneX(hook.lane) + 35 * scale, ease(reelProgress)) + struggle * 10;
         y = lerp(fish.y, 176, ease(reelProgress)) + Math.sin(elapsed * 19) * (1 - reelProgress) * 6;
       }
-      if (reelProgress >= 1) {
-        if (!fish.landed) {
-          fish.landed = true;
-          this.spray(simulation.width * hook.fraction + 14, 207, INK, 10);
-        }
-        continue;
-      }
-      const rodX = this.laneX(hook.lane) + 47 * scale;
-      const rodY = 199 + Math.sin(this.ambientTime * 2 + hook.lane) * 4 - 22 * scale;
+      const { x: rodX, y: rodY } = this.rodTip(hook.lane, 0, !!fish);
       let at;
       c.strokeStyle = fish ? RED : INK;
       c.lineWidth = fish ? 3.6 : 2.6;
@@ -488,6 +511,22 @@ export class Ocean {
     }
     c.globalAlpha = 1;
     for (const burst of this.bursts) this.drawBurst(burst);
+  }
+
+  // A landed catch swings up to hang head-first from its hoisted rod. Every catch is printed
+  // alike, in plain ink, so the dock shows the evidence without marking any of it.
+  drawLanded(fish) {
+    const c = this.ctx, age = this.time - fish.landedAt, lift = ease(age / HOIST);
+    const tip = this.rodTip(fish.lane, lift, false), size = this.fishSize(fish);
+    const x = lerp(this.laneX(fish.lane) + 35 * this.boatScale(), tip.x, lift);
+    const y = lerp(176, tip.y + 13, lift);
+    const hang = -fish.direction * Math.PI / 2;
+    const angle = hang * (1 - Math.exp(-5 * age) * Math.cos(11 * age)) + Math.sin(this.ambientTime * 1.7 + fish.lane) * 0.05;
+    c.strokeStyle = INK; c.lineWidth = 2.4;
+    c.beginPath(); c.moveTo(tip.x, tip.y); c.lineTo(x, y); c.stroke();
+    c.save(); c.translate(x, y); c.rotate(angle);
+    this.drawFish(-fish.direction * size * 0.62, 0, size, fishStyle(fish.fishColor), fish.direction, this.ambientTime * 2.2);
+    c.restore();
   }
 
   // Each catch: a printed shockwave, radiating lines of force, and a slammed shout.
