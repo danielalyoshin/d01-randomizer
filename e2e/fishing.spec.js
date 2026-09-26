@@ -423,3 +423,89 @@ test('casting uses an open list, holds for one that cannot be used, and L reopen
   await expect(page.locator('#results-dialog')).toBeVisible();
   await expect(page.locator('.result-heading .eyebrow')).toHaveText('The last catch');
 });
+
+test('today’s catch lists every cast in order, and a quiet re-roll is stamped thrown back', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const ledger = page.getByRole('region', { name: 'Today’s catch' });
+  const lines = ledger.locator('.ledger-cast');
+  await expect(ledger).toBeHidden();
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  const first = await page.locator('.result-heading h2').textContent();
+  const firstLength = await page.locator('.winning-catch .fish-length').textContent();
+  await page.getByRole('button', { name: 'Mark presented & return' }).click();
+  await expect(ledger).toBeVisible();
+  await expect(ledger.locator('.ledger-day')).toContainText('Today’s catch');
+  await expect(lines).toHaveCount(1);
+  await expect(lines.first()).toHaveClass(/is-presented/);
+  await expect(lines.first()).toContainText(first);
+  await expect(lines.first().locator('.ledger-length')).toHaveText(firstLength);
+  // Closing the results without marking leaves the catch on deck; casting again throws it back.
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  const second = await page.locator('.result-heading h2').textContent();
+  await page.getByRole('button', { name: 'Back to the boats' }).click();
+  await expect(lines.nth(1)).toHaveClass(/is-on-deck/);
+  await expect(lines.nth(1)).toContainText('On deck');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  const third = await page.locator('.result-heading h2').textContent();
+  await page.getByRole('button', { name: 'Back to the boats' }).click();
+  await expect(lines).toHaveCount(3);
+  await expect(lines.nth(1)).toHaveClass(/is-thrown-back/);
+  await expect(lines.nth(1)).toContainText(second);
+  await expect(lines.nth(1)).toContainText('Thrown back');
+  // The winner marked by its name tag counts as presented, just as from the results.
+  await page.getByRole('checkbox', { name: `${third} already presented` }).click();
+  await expect(lines.nth(2)).toHaveClass(/is-presented/);
+  await page.reload();
+  await expect(lines).toHaveCount(3);
+  await expect(lines.nth(1)).toHaveClass(/is-thrown-back/);
+  // Reset presented clears the ledger with the marks; one Undo brings both back.
+  await page.locator('#options-toggle').click();
+  await page.getByRole('button', { name: 'Reset presented', exact: true }).click();
+  await expect(page.locator('#toast')).toContainText('Today’s catch is cleared.');
+  await expect(ledger).toBeHidden();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#ready-count')).toHaveText('6');
+  // The slip steps aside while Options is open, as the dock note does.
+  await expect(ledger).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(lines).toHaveCount(3);
+});
+
+test('a reload mid-round is written as a cut line; its fixed catch can still be revealed, or is struck on the next cast', async ({ page }) => {
+  await page.goto('/');
+  const ledger = page.getByRole('region', { name: 'Today’s catch' });
+  const lines = ledger.locator('.ledger-cast');
+  const latestWinner = () => page.evaluate(() => JSON.parse(localStorage.getItem('daily-catch-ledger-v1')).casts.at(-1).winner);
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('#catch-feed')).toBeVisible();
+  const fixed = await latestWinner();
+  await page.reload();
+  // The cut line never prints a winner the room hasn't seen.
+  await expect(lines.first()).toHaveClass(/is-held/);
+  await expect(lines.first()).toContainText('Catch held · 8 boats out');
+  await expect(ledger).not.toContainText(fixed.name);
+  await expect(page.locator('#toast')).toContainText('Cast 1 was cut short.');
+  await page.getByRole('button', { name: 'Reveal its catch' }).click();
+  await expect(page.locator('.result-heading h2')).toHaveText(fixed.name);
+  await expect(page.locator('.winning-catch .fish-length')).toHaveText(`${(fixed.length / 10).toFixed(1)} cm`);
+  await page.getByRole('button', { name: 'Mark presented & return' }).click();
+  await expect(lines.first()).toHaveClass(/is-presented/);
+
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('#catch-feed')).toBeVisible();
+  const cut = await latestWinner();
+  await page.reload();
+  await page.locator('#options-toggle').click();
+  await expect(page.getByRole('button', { name: 'Reveal cast 2' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // Casting again instead settles it as cut, and prints who it would have landed.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await page.getByRole('button', { name: 'Back to the boats' }).click();
+  await expect(lines).toHaveCount(3);
+  await expect(lines.nth(1)).toHaveClass(/is-cut/);
+  await expect(lines.nth(1)).toContainText(cut.name);
+  await expect(lines.nth(1)).toContainText('Line cut');
+  await expect(lines.nth(2)).toHaveClass(/is-on-deck/);
+});

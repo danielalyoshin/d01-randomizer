@@ -3,6 +3,7 @@ import '@fontsource-variable/archivo/wdth.css';
 import './style.css';
 import { COLORS, MIN_GROUPS, MAX_GROUPS, STORAGE_KEY, defaultGroups, restoreState, createExpedition, smallestCatch, formatLength } from './randomizer.js';
 import { MAX_NAME, cleanName, nameKey, readNameList, crewFromList } from './crew-list.js';
+import { LEDGER_KEY, emptyLedger, readLedger, openCast, landCast, cutOpenCasts, heldCast, syncPresented, ledgerLines, foldLines } from './ledger.js';
 import { icon } from './icons.js';
 import { fishArt } from './fish-art.js';
 import { Ocean } from './ocean.js';
@@ -29,6 +30,10 @@ try {
 } catch { /* Without storage, every visit is a first one. */ }
 let groups = saved?.groups || defaultGroups();
 let lastCatch = saved?.lastCatch || null;
+// Today's catch: every cast, written down as the lines go in (see ledger.js). A round still in
+// the water when the page loads was cut short by a reload; its catch is held until the next cast.
+let ledger = emptyLedger();
+try { ledger = cutOpenCasts(readLedger(localStorage.getItem(LEDGER_KEY))); } catch { /* Storage is optional. */ }
 let catches = [];
 let phase = 'idle';
 let caughtCount = 0;
@@ -36,14 +41,24 @@ let muted = true;
 let audioContext;
 let toastTimer;
 let resultIsPrevious = false;
-// The toast's one step back: { before, done, refocus } for a reset, a removal or a mark.
+// The toast's one step back: { before, ledger?, done, refocus } for a reset, a removal or a mark.
 let undoStep = null;
+// Or the one way on it offers instead: { label, run }, for a round a reload cut short.
+let toastOffer = null;
 // Mark presented works once the room has seen the name; the verdict is spoken as focus lands.
 let verdictIn = false;
 let pendingVerdict = null;
 let spaceTaken = false;
 // The crew as a pasted list: a draft in the Options panel until it's used or cancelled.
 let listing = false;
+// The ledger's printed lines. A line slams in when its cast is new or its outcome changes, but
+// only once the room is back at the dock: behind a reveal it waits (`ledgerQuiet`).
+let ledgerQuiet = false;
+let ledgerPrimed = false;
+let ledgerPrint = [];
+let ledgerFresh = new Set();
+let ledgerHtml = '';
+const ledgerSeen = new Map();
 
 $('#app').innerHTML = `
   <main class="app-shell">
@@ -70,8 +85,8 @@ $('#app').innerHTML = `
             <p class="crew-error" id="crew-error" hidden></p>
             <button class="add-button" id="add-group">${icon('plus', 18)} Add a boat <span id="capacity-label">8 / 12</span></button>
             <p class="crew-tip">Tick a boat here, or click its name tag on the board, to mark it presented.</p>
-            <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Put every boat back in play">Reset presented</button></div>
-            <button class="last-catch-button text-button" id="last-catch-button" aria-keyshortcuts="L" ${lastCatch ? '' : 'hidden'}>${icon('fish', 20)} View last catch ${icon('arrow', 18)}</button>
+            <div class="crew-footer"><span><span class="ready-dot"></span><span id="ready-count">8</span> ready to cast</span><button class="text-button" id="reset-presented" title="Put every boat back in play and clear today’s catch">Reset presented</button></div>
+            <button class="last-catch-button text-button" id="last-catch-button" aria-keyshortcuts="L" ${lastCatch ? '' : 'hidden'}>${icon('fish', 20)} <span id="last-catch-label">View last catch</span> ${icon('arrow', 18)}</button>
             <div class="options-tools">
               <span class="options-tools-label" aria-hidden="true">Sound · Fullscreen</span>
               <div class="scene-actions"><button class="icon-button" id="sound-toggle" aria-label="Turn sound on" aria-pressed="false" title="Turn sound on">${icon('muted', 19)}</button><button class="icon-button" id="fullscreen" aria-label="Enter fullscreen" title="Fullscreen">${icon('expand', 19)}</button></div>
@@ -96,6 +111,7 @@ $('#app').innerHTML = `
           <p>Cast right away with these, or paste your group names first, one per line. When a group has presented, click its name tag.</p>
           <div class="dock-note-actions"><button type="button" class="plate-button" id="dock-note-paste">${bolt()}<span class="label">Paste group names</span></button><button type="button" class="text-button" id="dock-note-help"><kbd aria-hidden="true">?</kbd> How to play</button></div>
         </aside>
+        <section class="ledger" id="ledger" aria-label="Today’s catch" hidden><div class="ledger-lines" id="ledger-lines"></div><div class="ledger-column ledger-probe" id="ledger-probe" aria-hidden="true"></div></section>
       </div>
       <div class="boat-scroll-hint"><span>←</span> Scroll to see every boat <span>→</span></div>
       <div class="game-controls">
@@ -106,41 +122,52 @@ $('#app').innerHTML = `
     </section>
   </main>
 
-  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. In Options, rename, add or remove boats (2–12), or paste your whole list at once.</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>L</kbd></dt><dd>Open the last catch at the dock.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat, a list or a mark.</dd></div><div><dt><kbd>?</kbd></dt><dd>Open this guide from the board.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page, a list or Options.</dd></div></dl></section><p class="help-footnote">Boat names and who has presented are saved in this browser. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
+  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. In Options, rename, add or remove boats (2–12), or paste your whole list at once.</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation. Every cast is written into today’s catch at the dock, even one thrown back or cut short.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round, or one a reload cut short.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>L</kbd></dt><dd>Open the last catch at the dock.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat, a list or a mark.</dd></div><div><dt><kbd>?</kbd></dt><dd>Open this guide from the board.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page, a list or Options.</dd></div></dl></section><p class="help-footnote">Boat names, who has presented and today’s catch are saved in this browser, until Reset presented. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
 
   <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter" tabindex="-1"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Close" title="Close">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison" role="table" aria-label="Every catch, in boat order"></div><div class="results-actions"><button class="lever" id="mark-presented" aria-keyshortcuts="Enter">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" id="results-back" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
-  <div class="toast" id="toast"><span id="toast-message" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="plate-button toast-undo" id="toast-undo" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Z' : 'Control+Z'}" hidden><span class="label">Undo</span></button></div>
+  <div class="toast" id="toast"><span id="toast-message" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="plate-button toast-undo" id="toast-undo" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Z' : 'Control+Z'}" hidden><span class="label">Undo</span></button><button type="button" class="plate-button toast-undo" id="toast-offer" aria-keyshortcuts="R" hidden><span class="label"></span></button></div>
   <span class="sr-only" id="live-status" role="status" aria-live="polite" aria-atomic="true"></span>
 `;
 
 function persist() {
   // Any later change to the crew retires the undo on offer.
   if (undoStep) dismissToast();
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ groups, lastCatch })); } catch { /* The game works without local storage. */ }
+  // However the latest catch's boat was marked (or unmarked), the ledger follows.
+  ledger = syncPresented(ledger, groups);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ groups, lastCatch }));
+    localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger));
+  } catch { /* The game works without local storage. */ }
 }
 
-// A toast that can take the action back stays up longer, and holds while the TA points at or focuses Undo.
-function toast(message, undo = null) {
+// A toast that can take the action back, or offers a way on, stays up longer, and holds while
+// the TA points at or focuses its plate.
+function toast(message, undo = null, offer = null) {
   undoStep = undo;
+  toastOffer = offer;
   $('#toast-message').textContent = message;
   $('#toast-undo').hidden = !undo;
+  $('#toast-offer').hidden = !offer;
+  if (offer) $('#toast-offer .label').textContent = offer.label;
   $('#toast').classList.add('visible');
-  armToast(undo ? 8000 : 3500);
+  armToast(offer ? 12000 : undo ? 8000 : 3500);
 }
 function armToast(ms) { clearTimeout(toastTimer); toastTimer = setTimeout(dismissToast, ms); }
 function dismissToast() {
   clearTimeout(toastTimer);
   undoStep = null;
+  toastOffer = null;
   $('#toast').classList.remove('visible');
-  // Undo stays printed while the toast fades, but it is already spent.
-  toastTimer = setTimeout(() => { $('#toast-undo').hidden = true; }, 250);
+  // The plates stay printed while the toast fades, but they are already spent.
+  toastTimer = setTimeout(() => { $('#toast-undo').hidden = true; $('#toast-offer').hidden = true; }, 250);
 }
 const snapshot = () => groups.map(group => ({ ...group }));
 function runUndo() {
   if (!undoStep || phase !== 'idle') return;
-  const { before, done, refocus } = undoStep;
+  const { before, ledger: logged, done, refocus } = undoStep;
   const fromButton = document.activeElement === $('#toast-undo');
   groups = before;
+  if (logged) ledger = logged;
   persist(); renderCrew();
   toast(done);
   if (fromButton) {
@@ -149,11 +176,14 @@ function runUndo() {
   }
 }
 $('#toast-undo').addEventListener('click', runUndo);
-for (const type of ['pointerenter', 'focus', 'pointerleave', 'blur']) {
-  $('#toast-undo').addEventListener(type, () => {
-    if (!undoStep) return;
-    if ($('#toast-undo').matches(':hover, :focus')) clearTimeout(toastTimer); else armToast(4000);
-  });
+$('#toast-offer').addEventListener('click', () => toastOffer?.run());
+for (const plate of [$('#toast-undo'), $('#toast-offer')]) {
+  for (const type of ['pointerenter', 'focus', 'pointerleave', 'blur']) {
+    plate.addEventListener(type, () => {
+      if (!undoStep && !toastOffer) return;
+      if (plate.matches(':hover, :focus')) clearTimeout(toastTimer); else armToast(4000);
+    });
+  }
 }
 
 // A modal dialog makes the rest of the page inert, so speak from inside the open one.
@@ -197,11 +227,12 @@ const ocean = new Ocean($('#ocean'), {
 const sceneObserver = new ResizeObserver(() => {
   const viewport = $('#ocean-viewport');
   $('.game-card').classList.toggle('has-overflow', viewport.scrollWidth > viewport.clientWidth + 1);
+  fitLedger();
 });
 sceneObserver.observe($('#ocean-viewport'));
 sceneObserver.observe($('#ocean-world'));
 // The dock drops just far enough for the tallest name tag (see Ocean.setDock).
-new ResizeObserver(() => ocean.setDock($('#boat-labels').offsetTop + $('#boat-labels').offsetHeight)).observe($('#boat-labels'));
+new ResizeObserver(() => { ocean.setDock($('#boat-labels').offsetTop + $('#boat-labels').offsetHeight); fitLedger(); }).observe($('#boat-labels'));
 
 function renderCrew() {
   const fishing = phase === 'fishing';
@@ -218,8 +249,12 @@ function renderCrew() {
   $('#add-group').disabled = fishing || groups.length >= MAX_GROUPS;
   $('#list-open').disabled = fishing;
   if (listing) renderList();
-  $('#reset-presented').disabled = fishing || !groups.some(group => group.excluded);
-  $('#last-catch-button').hidden = !lastCatch;
+  // Reset presented also clears today's catch, so it stays in reach while the ledger has a line.
+  $('#reset-presented').disabled = fishing || (!groups.some(group => group.excluded) && !ledger.casts.length);
+  // A round a reload cut short is the latest catch: this is the way to reveal it.
+  const held = heldCast(ledger);
+  $('#last-catch-button').hidden = !lastCatch && !held;
+  $('#last-catch-label').textContent = held ? `Reveal cast ${held.n}` : 'View last catch';
   $('#last-catch-button').disabled = fishing;
   $('#cast-button').disabled = !activeGroups().length;
   if (!fishing) {
@@ -227,6 +262,116 @@ function renderCrew() {
     $('#control-subtitle').textContent = activeGroups().length ? `${activeGroups().length} ${activeGroups().length === 1 ? 'boat' : 'boats'} ready to cast.` : 'Reset presented in Options to go again.';
   }
   ocean.setGroups(groups);
+  renderLedger();
+}
+
+// Today's catch, printed on the slip at the dock. Cast numbers are plain figures, so they never
+// read as a boat's two-digit number. A struck line is a winner who didn't present; its stamp says why.
+const DAY_NAME = new Intl.DateTimeFormat('en', { weekday: 'short' });
+const MONTH_NAME = new Intl.DateTimeFormat('en', { month: 'short' });
+// The weekday drops away in a narrow column; the date stays.
+const dayLabel = (at) => { const date = new Date(at); return `<span class="ledger-weekday">${DAY_NAME.format(date)} </span>${date.getDate()} ${MONTH_NAME.format(date)}`; };
+const STAMPS = { 'on-deck': 'On deck', 'thrown-back': 'Thrown back', cut: 'Line cut', held: 'Line cut' };
+// What a screen reader hears around the line's boat, name and length.
+const SAID = {
+  presented: ['', ', presented'],
+  'on-deck': ['', ', on deck: not yet marked presented'],
+  'thrown-back': ['Thrown back, cast again before it was marked: ', ''],
+  cut: ['Line cut by a reload, then cast again. It would have landed ', ''],
+};
+
+function ledgerLine(line) {
+  if (line.kind === 'day') {
+    return `<h2 class="ledger-day${line.today ? ' is-today' : ''}"><span>${line.today ? 'Today’s catch' : 'Earlier catch'}</span> <time datetime="${line.day}">${dayLabel(line.at)}</time></h2>`;
+  }
+  if (line.kind === 'fold') {
+    const { from, to, tally } = line;
+    const counts = [[tally.presented, 'presented'], [tally['on-deck'], 'on deck'], [tally['thrown-back'], 'thrown back'], [tally.cut + tally.held, 'line cut']]
+      .filter(([count]) => count).map(([count, what], i) => `${i ? '<span aria-hidden="true">·</span> ' : ''}<span${what === 'presented' ? '' : ' class="is-flagged"'}>${count} ${what}</span>`);
+    return `<p class="ledger-fold"><span>Casts ${from}–${to}<span class="sr-only">:</span></span> ${counts.join(' ')}</p>`;
+  }
+  const { cast, outcome } = line;
+  const no = `<span class="ledger-no"><span class="sr-only">Cast </span>${cast.n}<span class="sr-only">. </span></span>`;
+  const fresh = ledgerFresh.has(cast.n) ? ' is-fresh' : '';
+  // A catch the room hasn't seen never prints its winner: not while the lines are in, nor while
+  // a round a reload cut short can still be revealed.
+  if (outcome === 'held' || outcome === 'open') {
+    const out = `${cast.boats} ${cast.boats === 1 ? 'boat' : 'boats'} out`;
+    return outcome === 'open'
+      ? `<p class="ledger-cast is-held">${no}<span class="ledger-boat" aria-hidden="true"></span><span class="ledger-name">Lines in · ${out}</span></p>`
+      : `<p class="ledger-cast is-held${fresh}">${no}<span class="ledger-boat" aria-hidden="true"></span><span class="ledger-name">Catch held · ${out}</span><span class="ledger-stamp" aria-hidden="true">Line cut</span><span class="sr-only">. A reload cut the round short. Reveal it, or cast again.</span></p>`;
+  }
+  const [before, after] = SAID[outcome];
+  // The boat's number as the board prints it now; the number it sailed under if it has left the dock.
+  const index = groups.findIndex(group => group.id === cast.winner.id);
+  const stamp = STAMPS[outcome] ? `<span class="ledger-stamp" aria-hidden="true">${STAMPS[outcome]}</span>` : '';
+  const struck = outcome === 'thrown-back' || outcome === 'cut' ? ' is-struck' : '';
+  return `<p class="ledger-cast is-${outcome}${struck}${fresh}">${no}${before ? `<span class="sr-only">${before}</span>` : ''}<b class="ledger-boat">${index >= 0 ? boatNumber(index) : cast.winner.number}</b><span class="ledger-name">${escapeHtml(cast.winner.name)}</span><span class="ledger-length">${formatLength(cast.winner.length)}<small> cm</small></span>${stamp}${after ? `<span class="sr-only">${after}</span>` : ''}</p>`;
+}
+
+function renderLedger() {
+  ledgerPrint = ledgerLines(ledger);
+  $('#ledger').hidden = !ledgerPrint.length;
+  const casts = ledgerPrint.filter(line => line.kind === 'cast');
+  const loud = ledgerPrimed && !ledgerQuiet && phase === 'idle' && !$('dialog[open]');
+  if (loud) {
+    // A fresh line slams in once; after that, a refit reprints it still.
+    const fresh = ledgerFresh = new Set(casts.filter(line => ledgerSeen.get(line.cast.n) !== line.outcome).map(line => line.cast.n));
+    if (fresh.size) setTimeout(() => { if (ledgerFresh === fresh) ledgerFresh = new Set(); }, 1000);
+  }
+  if (loud || !ledgerPrimed) {
+    ledgerSeen.clear();
+    casts.forEach(line => ledgerSeen.set(line.cast.n, line.outcome));
+    ledgerPrimed = true;
+  }
+  fitLedger();
+}
+
+// The slip keeps under the hooks hanging at the dock and beside the depth gauge (above it on a
+// phone). Its lines flow into as many newspaper columns as it takes; when even those can't hold
+// them, the oldest casts fold into one line that still counts what they were. It never scrolls.
+const LEDGER_COL = { min: 290, max: 360, gap: 18 };
+function fitLedger() {
+  const slip = $('#ledger'), list = $('#ledger-lines');
+  // While the lines are in, the catch feed has the corner.
+  if (slip.hidden || phase === 'fishing' || !slip.checkVisibility()) return;
+  const area = $('.scene-bottom').getBoundingClientRect(), gauge = $('.depth-gauge');
+  const phone = matchMedia('(max-width: 600px)').matches;
+  const frame = slip.offsetWidth - list.clientWidth;
+  const margin = phone ? 0 : parseFloat(getComputedStyle(slip).marginRight);
+  const room = { width: area.width - margin - (phone ? 0 : gauge.offsetWidth + 14) - frame,
+    height: Math.max(130, area.bottom - $('#ocean').getBoundingClientRect().top - ocean.openWater - (phone ? gauge.offsetHeight + 10 : 0)) };
+  const most = Math.max(1, Math.floor((room.width + LEDGER_COL.gap) / (LEDGER_COL.min + LEDGER_COL.gap)));
+  const casts = ledgerPrint.filter(line => line.kind === 'cast').length;
+  // Folding a single cast would save nothing, so folds start at two.
+  // Lines are measured in a hidden column beside the slip's own, so the printed lines are only
+  // rewritten when what they say or where they fall changes.
+  const probe = $('#ledger-probe');
+  const limit = room.height - (slip.offsetHeight - list.offsetHeight);
+  for (let fold = 0; fold <= casts; fold = fold ? fold + 1 : 2) {
+    const lines = foldLines(ledgerPrint, fold).map(ledgerLine);
+    probe.innerHTML = lines.join('');
+    for (let cols = 1; cols <= Math.min(most, lines.length); cols++) {
+      // Columns stand on their own, like a newspaper's: a stamped line never stretches its neighbour.
+      slip.style.setProperty('--col', `${Math.min(LEDGER_COL.max, Math.floor((room.width - (cols - 1) * LEDGER_COL.gap) / cols))}px`);
+      const heights = [...probe.children].map(line => line.offsetHeight);
+      const columns = [[]];
+      let filled = 0;
+      heights.forEach((height, i) => {
+        // A day rule never ends a column: it goes over with the line it heads.
+        const needs = probe.children[i].matches('.ledger-day') ? height + (heights[i + 1] || 0) : height;
+        if (filled + needs > limit && columns.at(-1).length) { columns.push([]); filled = 0; }
+        columns.at(-1).push(lines[i]);
+        filled += height;
+      });
+      if (columns.length > cols || filled > limit) continue;
+      const html = columns.map(column => `<div class="ledger-column">${column.join('')}</div>`).join('');
+      if (html !== ledgerHtml) { list.innerHTML = html; ledgerHtml = html; }
+      probe.innerHTML = '';
+      return;
+    }
+  }
+  probe.innerHTML = '';
 }
 
 $('#crew-list').addEventListener('change', (event) => {
@@ -322,12 +467,16 @@ $('#add-group').addEventListener('click', () => {
   const input = $(`[data-name="${CSS.escape(group.id)}"]`); input.focus(); input.select();
 });
 
+// Reset presented starts the day's record over too: every boat back in play, today's catch
+// cleared. One Undo brings both back.
 $('#reset-presented').addEventListener('click', () => {
   if (phase !== 'idle') return;
-  const before = snapshot();
+  const before = snapshot(), logged = ledger.casts.length ? ledger : null;
   groups.forEach(group => { group.excluded = false; });
+  ledger = emptyLedger();
   persist(); renderCrew();
-  toast('Everyone’s back on board.', { before, done: 'Presented list restored.', refocus: () => $('#reset-presented') });
+  toast(logged ? 'Everyone’s back on board. Today’s catch is cleared.' : 'Everyone’s back on board.',
+    { before, ledger: logged, done: logged ? 'Presented list and today’s catch restored.' : 'Presented list restored.', refocus: () => $('#reset-presented') });
 });
 
 // Paste a list: the crew as lines of text, one boat per line, numbered in the gutter as the
@@ -453,12 +602,21 @@ function startRound() {
   // Commit an edited name before taking a snapshot of the participating crew.
   document.activeElement?.blur();
   $('#game-options').open = false;
-  // A round changes who can be undone; the offer ends with the cast.
-  if (undoStep) dismissToast();
+  // A round changes who can be undone; the offer ends with the cast, as does a held round's.
+  if (undoStep || toastOffer) dismissToast();
   let round;
   try { round = createExpedition(groups, undefined, ocean.width || $('#ocean').clientWidth); }
   catch { toast('No bites this time. Try casting again.'); return; }
   catches = round.catches;
+  // The cast is written down before a line moves, with the result it has already fixed, so a
+  // reload mid-round can't make it disappear.
+  const winner = smallestCatch(catches);
+  ledger = openCast(ledger, {
+    at: Date.now(), boats: catches.length,
+    winner: { id: winner.id, name: winner.name, number: boatNumber(winner.lane), length: winner.length },
+    catches: catches.map(({ id, name, color, fishColor, length }) => ({ id, name, color, fishColor, length })),
+  });
+  persist();
   caughtCount = 0;
   phase = 'fishing';
   resultIsPrevious = false;
@@ -487,8 +645,25 @@ function startRound() {
 function finishRound() {
   if (phase !== 'fishing') return;
   lastCatch = catches.map(({id, name, color, fishColor, length}) => ({id, name, color, fishColor, length}));
+  ledger = landCast(ledger);
+  // The ledger takes its new line when the room is back at the dock, never behind the reveal.
+  ledgerQuiet = true;
   persist();
   returnToDock();
+  showResults(false);
+}
+
+// A reload cut this round short, but its catch was fixed at the cast: reveal it just as it
+// would have landed. Casting again instead leaves it in the ledger as cut.
+function revealCut() {
+  const held = heldCast(ledger);
+  if (!held || phase !== 'idle' || $('dialog[open]')) return;
+  closeOptions();
+  if (toastOffer) dismissToast();
+  lastCatch = held.catches;
+  ledger = landCast(ledger);
+  ledgerQuiet = true;
+  persist(); renderCrew();
   showResults(false);
 }
 
@@ -618,7 +793,7 @@ $('#pause-button').addEventListener('click', togglePause);
 $('#skip-button').addEventListener('click', finishRound);
 // Fold Options first, so the panel isn't left over the board behind the dialog, and so
 // closing the dialog hands focus back to the Options tag when that's where it came from.
-$('#last-catch-button').addEventListener('click', () => { closeOptions(); showResults(true); });
+$('#last-catch-button').addEventListener('click', () => { closeOptions(); if (heldCast(ledger)) revealCut(); else showResults(true); });
 // How to play opens from the ? plate beside Options, the ? key, or the dock note.
 function openHelp() {
   if ($('dialog[open]')) return;
@@ -641,6 +816,8 @@ $('#help-dialog').addEventListener('close', () => {
 $('#results-dialog').addEventListener('close', () => {
   pendingVerdict = null;
   verdictIn = false;
+  ledgerQuiet = false;
+  renderLedger();
   if (!resultIsPrevious) $('#cast-button').focus({ preventScroll: true });
 });
 
@@ -742,13 +919,16 @@ document.addEventListener('keydown', (event) => {
   } else if (key === 'r' && phase === 'fishing') {
     event.preventDefault();
     finishRound();
+  } else if (key === 'r' && phase === 'idle' && heldCast(ledger)) {
+    event.preventDefault();
+    revealCut();
   } else if (event.key === '?') {
     event.preventDefault();
     openHelp();
-  } else if (key === 'l' && phase === 'idle' && lastCatch) {
+  } else if (key === 'l' && phase === 'idle' && (lastCatch || heldCast(ledger))) {
     event.preventDefault();
     closeOptions();
-    showResults(true);
+    if (heldCast(ledger)) revealCut(); else showResults(true);
   }
 });
 // The Space that cast or paused must not also press whatever holds focus when it comes up.
@@ -758,3 +938,9 @@ document.addEventListener('keyup', (event) => {
 
 renderCrew();
 persist();
+document.fonts?.ready.then(fitLedger);
+// A reload cut the last round short: say so, and offer its catch before anyone casts again.
+{
+  const held = heldCast(ledger);
+  if (held) toast(`Cast ${held.n} was cut short.`, null, { label: 'Reveal its catch', run: revealCut });
+}

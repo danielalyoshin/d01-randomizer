@@ -85,6 +85,9 @@ export class Ocean {
   get drop() { return Math.max(0, Math.round(this.dockBottom + 5 - (this.boatY() - 55 * this.boatScale() - 5))); }
   // The world y at the top edge of the screen.
   get top() { return this.camera - this.drop; }
+  // Where open water starts at the dock, in pixels from the top of the board: just under the
+  // lowest hook hanging at rest (see drawIdleHooks). The ledger slip keeps below it.
+  get openWater() { return 330 + this.drop; }
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();

@@ -120,7 +120,7 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .game-options > summary svg:last-child { transition: transform .18s cubic-bezier(.16, 1, .3, 1); }
 .game-options[open] > summary { --face: var(--ink); --fg: var(--stock); --drop: var(--red); }
 .game-options[open] > summary svg:last-child { transform: rotate(180deg); }
-.options-panel, dialog, .depth-gauge, .dock-note {
+.options-panel, dialog, .depth-gauge, .dock-note, .ledger {
   --corner: 22px;
   border: 3px solid var(--ink);
   clip-path: polygon(0 0, calc(100% - var(--corner)) 0, 100% var(--corner), 100% 100%, 0 100%);
@@ -305,6 +305,58 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .dock-note > p { margin: 0; max-width: 44ch; font-size: var(--t-body); line-height: 1.4; color: var(--ink-2); text-wrap: pretty; }
 .dock-note-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
 .dock-note-actions kbd { margin-right: 2px; }
+
+/* Today's catch. The day's ledger, bolted into the catch feed's corner while it stands empty at
+   the dock: every cast in order, the boat it landed and the length, set in ink on paper and still,
+   so it reads from the back row without competing with the board. Cast numbers are plain faded
+   figures; the boat keeps its two-digit block. A winner who didn't present is struck through and
+   stamped: THROWN BACK (cast again before it was marked) or LINE CUT (a reload cut the round
+   short). ON DECK is a catch that's in but not yet marked, stamped in dashes like a proof.
+   main.js packs the lines into newspaper columns under the hooks; the slip never scrolls. It
+   stands clear of the depth ruler on the right edge, so no mark is left half-covered. The slip
+   itself never moves: the only motion is a line slamming in. */
+.ledger {
+  --corner: 14px;
+  position: relative; flex: none; margin: 0 66px 0 auto; padding: 6px 10px 0; color: var(--ink);
+  background: linear-gradient(to bottom left, transparent 50%, var(--ink) 50% calc(50% + 3px), transparent 0) right top / var(--corner) var(--corner) no-repeat border-box, var(--stock);
+}
+.is-fishing .ledger, .dock-note:not([hidden]) ~ .ledger { display: none; }
+.game-card:has(.game-options[open]) .ledger { visibility: hidden; }
+/* Lines run down a column, then on into the next. */
+.ledger-lines { display: flex; align-items: flex-start; gap: 18px; }
+.ledger-column { flex: none; width: var(--col, 340px); container-type: inline-size; }
+/* Where main.js measures the lines before it prints them. */
+.ledger-probe { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }
+.ledger-day { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 2px 6px; border-bottom: 3px solid var(--ink); font: 800 var(--t-ui)/1 var(--display); letter-spacing: .06em; }
+.ledger-day time { color: var(--ink-3); white-space: nowrap; }
+.ledger-day > span { white-space: nowrap; }
+@container (max-width: 320px) { .ledger-weekday { display: none; } }
+/* Today's rule is the column head: a black slab on a bolt, like the catch feed it gives way to. */
+.ledger-day.is-today { padding: 8px 10px 7px 34px; border: 0; background: var(--bolt) 8px center / 17px 17px no-repeat, var(--ink); color: var(--stock); }
+.ledger-day.is-today > span { font: 900 var(--t-title)/1 var(--display); letter-spacing: .03em; }
+.ledger-day.is-today time { color: var(--on-ink-2); }
+.ledger-cast { position: relative; display: grid; grid-template-columns: 1.2em 28px minmax(0, 1fr) auto; align-items: center; column-gap: 9px; min-height: 38px; margin: 0; padding: 5px 2px 5px 0; border-bottom: 1px solid var(--ink); }
+.ledger-no { color: var(--ink-3); font: 800 var(--t-ui)/1 var(--display); text-align: right; font-variant-numeric: tabular-nums; }
+.ledger-boat { display: grid; place-items: center; width: 28px; height: 28px; background: var(--ink); color: var(--stock); font: 900 var(--t-ui)/1 var(--display); font-variant-numeric: tabular-nums; }
+.ledger-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font: 800 var(--t-title)/.92 var(--display); letter-spacing: .01em; text-transform: uppercase; }
+.ledger-length { font: 900 var(--t-title)/1 var(--display); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ledger-length small { margin-left: 1px; font-size: var(--t-label); font-weight: 800; }
+/* A stamped line keeps a band under its name, so the stamp never prints over the name it explains. */
+.ledger-cast:has(.ledger-stamp) { padding-bottom: 36px; }
+.ledger-stamp { position: absolute; right: 3px; bottom: 6px; padding: 3px 7px 1px; border: 2px solid var(--ink); background: var(--stock); color: var(--ink); font: 900 var(--t-ui)/1 var(--display); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; rotate: -6deg; }
+.is-on-deck .ledger-stamp { border-style: dashed; }
+.is-struck :is(.ledger-name, .ledger-length) { color: var(--ink-3); text-decoration: line-through 2px; }
+.is-struck .ledger-boat { background: none; color: var(--ink-3); box-shadow: inset 0 0 0 2px var(--ink-3); }
+/* A catch nobody has seen: no boat, no length, just an empty dashed block. */
+.is-held .ledger-boat { background: none; outline: 2px dashed var(--ink); outline-offset: -2px; }
+.is-held .ledger-name { color: var(--ink-2); }
+/* The oldest casts, folded when the slip can't hold them all, still counted by outcome. */
+.ledger-fold { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; margin: 0; padding: 10px 2px 7px; border-bottom: 1px dashed var(--ink); color: var(--ink-2); font: 800 var(--t-ui)/1.1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+.ledger-fold > span:first-child { color: var(--ink-3); }
+.ledger-fold .is-flagged { color: var(--ink); font-weight: 900; text-decoration: underline 2px; text-underline-offset: 3px; }
+/* A new line (or one whose outcome just changed) slams in once the room is back at the dock. */
+.ledger-cast.is-fresh { animation: row-slam .34s cubic-bezier(.16, 1, .3, 1) .1s both; }
+.is-fresh .ledger-stamp { animation: stamp .36s cubic-bezier(.16, 1, .3, 1) .4s both; }
 
 .boat-scroll-hint { grid-row: 2; display: none; justify-content: center; align-items: center; gap: 14px; padding: 8px 12px 7px; background: var(--stock-2); border-top: 2px solid var(--ink); font: 800 var(--t-label)/1 var(--display); letter-spacing: .14em; text-transform: uppercase; }
 .has-overflow .boat-scroll-hint { display: flex; }
@@ -598,6 +650,8 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .scene-bottom { flex-wrap: wrap; }
   .dock-note { order: -1; flex-basis: 100%; --spine: 22px; padding: 12px 14px 14px calc(var(--spine) + 14px); background-size: 14px 14px, 14px 14px, auto, var(--corner) var(--corner); background-position: 4px 12px, 4px calc(100% - 12px), 0 0, right top; }
   .dock-note h2 { font-size: var(--t-title); }
+  /* So does the ledger, one column the width of the board. */
+  .ledger { order: -1; flex: 1 1 100%; margin: 0; }
   .catch-feed-heading { gap: 10px; }
   .catch-feed-count, .catch-feed strong { font-size: var(--t-ui); }
   .game-controls { flex-direction: column; align-items: stretch; gap: 14px; min-height: 0; padding: 16px 16px 18px; text-align: center; }
