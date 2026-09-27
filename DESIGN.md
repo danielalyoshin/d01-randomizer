@@ -11,6 +11,12 @@ colors:
   stock-deep: "#d6ccb6"
   on-ink-muted: "#bdb5a6"
 typography:
+  shout:
+    fontFamily: "'Big Shoulders Variable', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif"
+    fontSize: "clamp(76px, 11vw, 168px)"
+    fontWeight: 900
+    lineHeight: 0.8
+    letterSpacing: "-0.01em"
   display:
     fontFamily: "'Big Shoulders Variable', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif"
     fontSize: "clamp(44px, 6vw, 82px)"
@@ -47,6 +53,11 @@ typography:
     fontWeight: 900
     lineHeight: 1
     fontFeature: "tnum"
+  numeral-xl:
+    fontFamily: "'Big Shoulders Variable', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif"
+    fontSize: "52px"
+    fontWeight: 900
+    lineHeight: 0.78
   label:
     fontFamily: "'Big Shoulders Variable', 'Arial Narrow', 'Roboto Condensed', Impact, sans-serif"
     fontSize: "14px"
@@ -131,6 +142,70 @@ components:
     textColor: "{colors.type-black}"
     typography: "{typography.body}"
     height: "46px"
+  keycap:
+    backgroundColor: "{colors.stock-cream}"
+    textColor: "{colors.type-black}"
+    typography: "{typography.label}"
+    padding: "1px 6px 0"
+  count-badge:
+    backgroundColor: "{colors.type-black}"
+    textColor: "{colors.stock-cream}"
+    typography: "{typography.title}"
+    padding: "5px 8px 4px"
+  presented-stamp:
+    backgroundColor: "{colors.stock-cream}"
+    textColor: "{colors.ink-faded}"
+    typography: "{typography.ui}"
+    padding: "3px 7px 1px"
+  ink-toast:
+    backgroundColor: "{colors.type-black}"
+    textColor: "{colors.stock-cream}"
+    typography: "{typography.title}"
+    padding: "13px 20px 12px"
+  toast-undo:
+    backgroundColor: "{colors.stock-cream}"
+    textColor: "{colors.type-black}"
+    typography: "{typography.ui}"
+    padding: "6px 26px 6px 12px"
+    height: "42px"
+  dock-note:
+    backgroundColor: "{colors.stock-cream}"
+    textColor: "{colors.type-black}"
+    rounded: "{rounded.none}"
+    padding: "14px 18px 16px 48px"
+    width: "470px"
+  ledger-slip:
+    backgroundColor: "{colors.stock-cream}"
+    textColor: "{colors.type-black}"
+    rounded: "{rounded.none}"
+    padding: "6px 10px 0"
+  ledger-today-rule:
+    backgroundColor: "{colors.type-black}"
+    textColor: "{colors.stock-cream}"
+    typography: "{typography.title}"
+    padding: "8px 10px 7px 34px"
+  ledger-line:
+    textColor: "{colors.type-black}"
+    typography: "{typography.title}"
+    padding: "5px 2px 5px 0"
+    height: "38px"
+  haul-row:
+    textColor: "{colors.type-black}"
+    typography: "{typography.title}"
+    height: "48px"
+  haul-row-winner:
+    backgroundColor: "{colors.type-black}"
+    textColor: "{colors.stock-cream}"
+  smallest-stamp:
+    backgroundColor: "{colors.mechanical-red}"
+    textColor: "{colors.type-black}"
+    typography: "{typography.ui}"
+    padding: "4px 9px 3px"
+  hold-stamp:
+    backgroundColor: "{colors.stock-cream}"
+    textColor: "{colors.type-black}"
+    rounded: "{rounded.none}"
+    padding: "0.12em 0.24em 0.05em"
 ---
 
 # Design System: The Daily Catch · CSCD01
@@ -158,7 +233,7 @@ Motion is percussive. Type arrives slammed: it lands oversized and light, snaps 
 A two-ink letterpress palette on warm cream stock, with a single mechanical red as the only chroma.
 
 ### Primary
-- **Mechanical Red** (#d7261e): The ink of pressure. It marks a hooked line (the line turns red and thickens), the pennant and name tag of the boat fighting a fish, the hook plate and hook eye once a fish is on, the canvas shouts, the CAST lever face, the smallest catch (its fish, its measuring bar, its length and its number block), the focus ring, and text selection. A bobber's cap turns red only once its line is hooked. The one piece of red scenery is the sun family: the sun disc, its glitter on the water and the lighthouse bands.
+- **Mechanical Red** (#d7261e): The ink of pressure. It marks a hooked line (the line turns red and thickens), the pennant and name tag of the boat fighting a fish, the hook plate and hook eye once a fish is on, the canvas shouts, the CAST lever face, the depth label and the catch feed's label and gauge while the lines are in, the smallest catch (its fish, its measuring bar, its length and its number block), the focus ring, and text selection. Off the board, the How to play guide sets its display accents in red over a black misregistration: the title's second line, the step numerals and the fairness note's fish. A bobber's cap turns red only once its line is hooked. The one piece of red scenery is the sun family: the sun disc, its glitter on the water and the lighthouse bands.
 
 ### Neutral
 - **Type Black** (#111111): The main ink. Plate edges, hulls, engraved sea lines, the waterline band, the bottom control band, number blocks, eyebrow tags and every hard drop shadow.
@@ -172,7 +247,7 @@ A two-ink letterpress palette on warm cream stock, with a single mechanical red 
 ### Named Rules
 **The Two Inks Rule.** Everything is printed in type black on stock cream, plus red. Group colours (the 12-colour boat set) and fish colours (the 6-colour fish set) stay in data for storage and fairness; they are never rendered. Fish colours become six ink markings instead: solid, bars, spots, scale arcs, split and hatch.
 
-**The Pressure Red Rule.** On anything the room reads as data or can act on, red means pressure: the line under strain, the lever to pull, the verdict. Red is never used as a boat's identity, and never for a resting mark. The depth-scale numerals, an idle bobber's cap, a presented boat's stamp and the Options tick box all print in ink. The sun family (disc, glitter, lighthouse bands) is the only red scenery, and nothing else on the board may borrow it.
+**The Pressure Red Rule.** On anything the room reads as data or can act on, red means pressure: the line under strain, the lever to pull, the verdict. Red is never used as a boat's identity, and never for a resting mark. The depth-scale numerals, an idle bobber's cap, a presented boat's stamp, the Options tick box and ready square, and the spine legend all print in ink. The sun family (disc, glitter, lighthouse bands) is the only red scenery, and nothing else on the board may borrow it.
 
 **The Number Is The Name Rule.** A boat's identity travels as a two-digit wood-type numeral (01 to 12) on its hull, hook plate, name tag, crew row, result row and verdict. Wherever a name is printed, the number leads it: "05 · REBASE RANGERS" on the band, the catch feed, the catch shout and the toast; a paper number plate at the head of the board's name tags. The fish on the hook never carries identity; the plate does.
 
@@ -219,6 +294,7 @@ There is no ambient shadow and no blur. Depth is printed. Raised things cast a h
 - **Red drop** (`drop-shadow(4px 4px 0 #d7261e)`): Plates on the black band and the open Options tag, where a black drop would vanish.
 - **Cream drop** (`drop-shadow(4px 4px 0 #f2ede2)`): The lever on the black band.
 - **Toast drop** (`box-shadow: 5px 5px 0 #d7261e`): The ink toast.
+- **Stamp drop** (`box-shadow: 3px 3px 0`): The SMALLEST stamp (ink, or cream once its row inks over) and the verdict's number plate (red). A 2px ink drop previews a click on an Options tick box.
 - **Misregistered type** (`text-shadow: 2px 2px 0 #111111`, and `.045em .045em 0` on the cast callout): Red display type over cream.
 
 ### Named Rules
@@ -227,11 +303,11 @@ There is no ambient shadow and no blur. Depth is printed. Raised things cast a h
 ## Shapes
 
 Every rectangle is square-cornered, with no radius anywhere. Three silhouettes carry the world:
-- **Clipped plate.** The top-right corner is cut at 45° (22px on the options panel, 26px on dialogs, 12px on the depth gauge), with the cut drawn as a 3px black edge inside a 3px black frame.
+- **Clipped plate.** The top-right corner is cut at 45° (22px on the options panel, 26px on dialogs, 16px on the dock note, 14px on Today's catch, 12px on the depth gauge), with the cut drawn as a 3px black edge inside a 3px black frame.
 - **Slanted lever.** The trailing edge is sheared by 16px (12px on the Options tag and the ? plate), with a 3px black edge showing around the face.
 - **Notched feed.** The catch feed clips its bottom-left corner by 12px.
 
-Circles appear only as printed discs: bolts, the sun, bobbers, the shockwave rings behind the cast and the winner fish, and the dotted search ring around a descending hook. Status dots are squares. Hook plates are rectangles with a V-notch pointing down the line. Fixed rotations are part of the form: -2° toast, -4° help title, -5° PRESENTED stamp, -6° verdict, SMALLEST and LINES HELD stamps, -12° winner fish, -15° cast callout.
+Circles appear only as printed discs: bolts, the sun, bobbers, the shockwave rings behind the cast and the winner fish, and the dotted search ring around a descending hook. Status dots are squares. Hook plates are rectangles with a V-notch pointing down the line. Fixed rotations are part of the form: -2° toast, -4° help title, -5° PRESENTED stamp, -6° verdict, "Next to present" cue, SMALLEST, LINES HELD and ledger stamps, -12° winner fish, -15° cast callout.
 
 ## Components
 
@@ -250,7 +326,9 @@ The controls are tactile and mechanical: black-edged plates that you press into 
 ### Chips
 - **Eyebrow tag:** A black slab with cream caps at the 14px label step (800, 0.16em tracking). It opens dialogs and headings.
 - **Status tag:** A black slab with a slanted trailing edge and a square status dot that blinks red while fishing.
-- **Number block:** A black square (34px in crew rows, 32px in results) with a cream tabular numeral. It turns red with black type for the smallest catch, and becomes an outlined faded-ink square when excluded.
+- **Number block:** A black square (34px in crew rows, 32px in results, 28px in Today's catch, 26px in the pasted list's gutter) with a cream tabular numeral. It turns red with black type for the smallest catch, and becomes an outlined faded-ink square when excluded.
+- **Count badge:** A black slab with a two-digit tabular count in 22px caps at 900, closing the Boats heading in Options.
+- **Keycap:** Label-step caps on paper in a 2px ink frame with a 4px foot, like a key pressed into the page. It prints the keys in Skipper's keys, the dock note's ? and the pasted list's help.
 
 ### Cards / Containers
 - **Corner Style:** Clipped top-right corner (see Shapes); no radius.
@@ -297,7 +375,7 @@ Each page hangs on a spine: a 46px shaded gutter behind a 3px black rule, with t
 A black plate with two bolts and a notched corner. It shows a red caps label (NO BITES YET, FISH ON!, REEL THEM IN, ALL ASHORE), a tabular count, the latest catch's number and name in 22px title caps on up to two lines, and a segmented gauge: one red segment per boat in the round, 3px apart, filling from the left as catches land, so the segments count the boats.
 
 ### Hold Stamp
-A paused round is struck across the open water between the dock strip and the gauge and feed at the foot, so on a short screen it never stamps over a name: LINES HELD in display caps at 900, clamp(56px, min(9vw, 13dvh), 140px) (max(44px, 10dvh) on a screen 600px tall or less, so it keeps to the water under a tall strip), ink on a paper face inside a 6px ink frame with a second 2px rule 4px inside it, turned -6°. A black tag underneath reads "Paused · Space to resume" (just "Paused" on touch screens). It lands with the SMALLEST stamp's motion and takes no red, because a hold is the opposite of pressure. A cast callout caught mid-flight hides until the round resumes.
+A paused round is struck across the open water between the dock strip and the gauge and feed at the foot, so on a short screen it never stamps over a name: LINES HELD in display caps at 900, clamp(56px, min(9vw, 13dvh), 140px) (max(44px, 10dvh) on a screen 600px tall or less, so it keeps to the water under a tall strip), ink on a paper face inside a 6px ink frame with a second 3px rule 4px inside it, turned -6°. A black tag underneath reads "Paused · Space to resume" (just "Paused" on touch screens). It lands with the SMALLEST stamp's motion and takes no red, because a hold is the opposite of pressure. A cast callout caught mid-flight hides until the round resumes.
 
 ### Dock Strip (signature)
 The board's name tags, one per lane: a black tag with a paper number plate at the head of 22px title caps, filling its lane and wrapping onto as many as four lines, so even a 32-character name prints whole; only past that is it cut with an ellipsis. In lanes under 130px (twelve boats, a 1024px projector, phones) the tag steps down to the 19px UI size, like its stamp, so a long word keeps to one line. The dock drops only as far as the tallest tag needs, so short names keep the strip thin. The tags share a baseline over the boats, with a reserved stamp row beneath them. In lanes wider than about 490px (two or three boats) the tags grow with the lane up to the 30px numeral step. When the camera dives they stay pinned where they are, and a 3px ink rail joins the tags into a strip, the fishing lines running up behind it to their boats. A tag turns red while its boat fights a fish and back to ink once the catch is aboard. A moored boat's tag is a faded-ink outline, struck through and stamped PRESENTED.

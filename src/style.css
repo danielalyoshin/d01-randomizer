@@ -92,7 +92,7 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .spine { display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 0; }
 .spine .bolt { --s: 30px; }
 .spine-text { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--display); font-size: var(--t-ui); font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
-.spine-text b { color: var(--red); font-weight: 900; margin-bottom: 14px; }
+.spine-text b { font-weight: 900; margin-bottom: 14px; }
 .game-card { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; min-height: 0; background: var(--stock); border: 3px solid var(--ink); overflow: hidden; }
 
 /* Masthead and status */
@@ -181,7 +181,7 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .crew-tip { margin: 12px 0 8px; font-size: var(--t-label); line-height: 1.45; color: var(--ink-2); }
 .crew-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; font: 800 var(--t-ui)/1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
 .crew-footer > span { display: flex; align-items: center; gap: 6px; }
-.ready-dot { width: 9px; height: 9px; background: var(--red); }
+.ready-dot { width: 9px; height: 9px; background: var(--ink); }
 /* Paste a list. The crew as a ruled sheet, one boat to a line, each numbered in the gutter as
    the board will number it. A red number marks a name that will be cut or that is on the list
    twice; past the twelfth line the numbers print as faded outlines, with no boat to take.
