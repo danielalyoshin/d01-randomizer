@@ -19,6 +19,7 @@ npm-debug.log*
 # Impeccable scratch output (mock comps, review screenshots, build state)
 .impeccable/archive/
 .impeccable/build/
+.impeccable/critique/
 .impeccable/mocks/
 .impeccable/review/
 
