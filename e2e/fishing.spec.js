@@ -509,3 +509,46 @@ test('a reload mid-round is written as a cut line; its fixed catch can still be 
   await expect(lines.nth(1)).toContainText('Line cut');
   await expect(lines.nth(2)).toHaveClass(/is-on-deck/);
 });
+
+test('32-character names print whole on the board and in the haul, and the verdict never breaks a word', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const names = ['Pull Request Pirates of the Bay', 'The Undefined Behaviour Brigade', 'Continuous Integration Crew 2026', 'Distributed Systems Study Group', 'Merge Conflict Resolution Squad', 'The Segmentation Fault Society', 'Asynchronous Promise Resolvers', 'Refactoring Rangers of the North'];
+  await page.getByRole('button', { name: 'Paste group names' }).click();
+  await page.getByRole('textbox', { name: 'Group names, one per line' }).fill(names.join('\n'));
+  await page.getByRole('button', { name: 'Use these names' }).click();
+  await expect(page.locator('.boat-name')).toHaveText(names);
+  // A name is cut when it grows once its line clamp is lifted.
+  const cut = (selector) => page.locator(selector).evaluateAll(els => els.filter(el => {
+    const shown = el.offsetHeight;
+    el.style.webkitLineClamp = 'unset';
+    const whole = el.offsetHeight;
+    el.style.webkitLineClamp = '';
+    return whole > shown + 2;
+  }).length);
+  expect(await cut('.boat-tag-text')).toBe(0);
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await expect(page.locator('.catch-row')).toHaveCount(8);
+  expect(await cut('.catch-group > span:nth-child(2)')).toBe(0);
+  const brokenWords = await page.locator('.result-heading h2').evaluate(h2 => {
+    h2.style.rotate = '0deg';
+    const text = h2.firstChild, range = document.createRange();
+    return [...text.data.matchAll(/[^\s-]+/g)].filter(({ 0: word, index }) => {
+      range.setStart(text, index);
+      range.setEnd(text, index + word.length);
+      return new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size > 1;
+    }).length;
+  });
+  expect(brokenWords).toBe(0);
+});
+
+test('Options folds away however the catch is revealed, so its panel never hides behind the results', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Cast the lines' }).click();
+  await page.locator('#options-toggle').click();
+  await expect(page.locator('#options-panel')).toBeVisible();
+  await page.keyboard.press('r');
+  await expect(page.locator('#results-dialog')).toBeVisible();
+  await expect(page.locator('#options-panel')).toBeHidden();
+});

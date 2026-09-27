@@ -230,15 +230,17 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
 .ocean-world { position: relative; width: 100%; height: 100%; overflow: hidden; }
 #ocean { display: block; width: 100%; height: 100%; }
 /* Name tags. One lane per boat, as on the canvas: the tag carries the boat's number and name,
-   grows to fill its lane and wraps to a second line when the name needs it. The tags sit on a
-   shared baseline, and the dock drops to clear the tallest and the stamp row under it.
+   grows to fill its lane and wraps onto as many as four lines, so even a 32-character name
+   prints whole. In lanes under 130px (twelve boats, a 1024px projector) the tag steps down to
+   the UI size, like its stamp, so a long word keeps to one line. The tags sit on a shared
+   baseline, and the dock drops only as far as the tallest one and the stamp row under it need.
    The board carries no controls: the tag itself is the TA's Presented toggle, and a presented
    boat's tag is stamped PRESENTED. The stamp row is always reserved, so the dock never jumps. */
 .boat-labels { position: absolute; top: 84px; left: 0; right: 0; z-index: 2; container-type: inline-size; display: grid; grid-template-columns: repeat(var(--boats, 8), minmax(0, 1fr)); grid-template-rows: auto auto; column-gap: 4px; row-gap: 3px; padding: 0 2px; }
 .boat-label { grid-row: span 2; display: grid; grid-template-rows: subgrid; justify-items: center; min-width: 0; }
-/* The frame is a border, not padding, so the two-line clamp cuts cleanly at the text's edge. */
-.boat-tag { --tag: var(--ink); align-self: end; max-width: 100%; margin: 0; padding: 0; border: solid var(--tag); border-width: 5px 7px 4px; background: var(--tag); color: var(--stock); font: 800 var(--t-title)/1 var(--display); font-size: clamp(var(--t-title), 100cqi / var(--boats, 8) * .045, var(--t-numeral)); letter-spacing: .01em; text-align: start; text-transform: uppercase; cursor: pointer; transition: background-color .12s, border-color .12s; }
-.boat-tag-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+/* The frame is a border, not padding, so the line clamp cuts cleanly at the text's edge. */
+.boat-tag { --tag: var(--ink); align-self: end; max-width: 100%; margin: 0; padding: 0; border: solid var(--tag); border-width: 5px 7px 4px; background: var(--tag); color: var(--stock); font: 800 var(--t-title)/1 var(--display); font-size: clamp(var(--t-ui), (100cqi / var(--boats, 8) - 130px) * 100, clamp(var(--t-title), 100cqi / var(--boats, 8) * .045, var(--t-numeral))); letter-spacing: .01em; text-align: start; text-transform: uppercase; cursor: pointer; transition: background-color .12s, border-color .12s; }
+.boat-tag-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; overflow-wrap: anywhere; }
 .boat-tag:disabled { cursor: default; }
 .boat-tag:focus-visible { outline-offset: 2px; }
 /* The number rides at the head of the name as a small paper plate, like the hull it came from. */
@@ -278,7 +280,7 @@ kbd { display: inline-block; padding: 1px 6px 0; border: 2px solid var(--ink); b
    pressure, so it takes no red. It sits under Options, so the TA can still reach the panel.
    It lands in the open water between the dock strip (main.js reports where the strip ends as
    --dock) and the gauge and feed at the foot, so on a short screen it never stamps over a name. */
-.hold-stamp { display: none; grid-area: 1 / 1; position: relative; z-index: 3; align-self: center; justify-self: center; width: max-content; max-width: 92%; margin: var(--dock, 0px) 0 96px; text-align: center; pointer-events: none; rotate: -6deg; }
+.hold-stamp { display: none; grid-area: 1 / 1; position: relative; z-index: 3; align-self: safe center; justify-self: center; width: max-content; max-width: 92%; margin: var(--dock, 0px) 0 96px; text-align: center; pointer-events: none; rotate: -6deg; }
 .hold-stamp strong { display: block; padding: .12em .24em .05em; border: 6px solid var(--ink); background: var(--stock); box-shadow: inset 0 0 0 4px var(--stock), inset 0 0 0 7px var(--ink); color: var(--ink); font: 900 clamp(56px, min(9vw, 13dvh), 140px)/.86 var(--display); letter-spacing: .01em; text-transform: uppercase; }
 .hold-stamp > span { display: inline-block; margin-top: 12px; padding: 7px 14px 6px; background: var(--ink); color: var(--stock); font: 800 var(--t-title)/1 var(--display); letter-spacing: .16em; text-transform: uppercase; }
 .is-paused .hold-stamp { display: block; animation: stamp .36s cubic-bezier(.16, 1, .3, 1) both; }
@@ -490,6 +492,8 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
 .catch-group { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 10px; row-gap: 3px; min-width: 0; font: 800 var(--t-title)/1 var(--display); letter-spacing: .02em; text-transform: uppercase; }
 /* Two lines, or three on a spread whose rows have the height (main.js sets --name-lines). */
 .catch-group > span:nth-child(2) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--name-lines, 2); line-clamp: var(--name-lines, 2); overflow: hidden; overflow-wrap: anywhere; hyphens: auto; line-height: .9; }
+/* Unclamped for a moment while main.js checks whether any name runs past its lines. */
+.catch-comparison.is-measuring .catch-group > span:nth-child(2) { -webkit-line-clamp: unset; line-clamp: none; }
 .catch-number { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; background: var(--ink); color: var(--stock); font: 900 var(--t-ui)/1 var(--display); font-variant-numeric: tabular-nums; }
 /* SMALLEST is stamped onto the empty ruler just past the winner's fish (main.js places it, over
    the bar instead when the fish runs nearly full length). Out of flow, it never moves the row. */
@@ -540,18 +544,23 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .winner-copy { width: 100%; }
   .catch-comparison { grid-area: haul; align-self: center; display: flex; flex-direction: column; min-height: 0; max-height: 100%; margin: 0; }
   .comparison-heading, .comparison-scale { flex: none; }
-  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { flex: 0 1 76px; min-height: auto; grid-template-columns: minmax(180px, 34%) minmax(0, 1fr) 96px; }
+  .catch-row, .catch-comparison:has(.catch-row:nth-of-type(10)) .catch-row { flex: 0 1 76px; min-height: auto; grid-template-columns: minmax(180px, var(--name-share, 34%)) minmax(0, 1fr) 96px; }
   .results-actions { grid-area: actions; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 16px; width: 100%; max-width: 440px; margin: 0; }
   .results-actions :is(.lever, .plate-button) { justify-content: flex-start; white-space: normal; text-align: left; line-height: 1.02; }
   .results-actions .label { text-wrap: balance; }
   .results-actions svg:last-child { margin-left: auto; }
   .results-footnote { grid-area: note; margin: 2px 0 0; text-align: left; text-wrap: balance; }
+  /* Long names that would be cut at the title size step down to the UI size, keeping their lines,
+     and their column takes a little more of the row from the ruler, so a crew of 32-character
+     names still prints whole (main.js decides, by measuring). */
+  .catch-comparison.is-compact { --name-share: 38%; }
+  .catch-comparison:is(.is-compact, .is-tight) .catch-group { font-size: var(--t-ui); }
   /* When the rows can't each keep two lines (ten or more boats on a short screen), the haul
-     tightens rather than scroll: names keep to one line at the UI step and the ruler narrows,
-     so every catch is still on the page (main.js decides, by measuring). */
+     tightens rather than scroll: names keep to one line, cut at its end, and the ruler narrows,
+     so every catch is still on the page. The winner's row is cut like every other, so its height
+     never gives it away before the stamp; the verdict prints the name whole. */
   .catch-comparison.is-tight .catch-row { --fish: 46px; }
-  .catch-comparison.is-tight .catch-group { font-size: var(--t-ui); }
-  .catch-comparison.is-tight .catch-group > span:nth-child(2) { -webkit-line-clamp: 1; line-clamp: 1; }
+  .catch-comparison.is-tight .catch-group > span:nth-child(2) { display: block; white-space: nowrap; text-overflow: ellipsis; }
   .catch-comparison.is-tight .catch-number { width: 26px; height: 26px; }
   .catch-comparison.is-tight .fish-comparison-track { height: 28px; }
   .catch-comparison.is-tight .fish-length { font-size: var(--t-lever); }
@@ -566,6 +575,8 @@ dialog[open] { animation: page-slam .38s cubic-bezier(.16, 1, .3, 1) both; }
   .dock-note-actions .plate-button { min-height: 42px; }
   /* The pasted list can shrink to two ruled lines, so "Use these names" stays in the panel. */
   .list-sheet { min-height: calc(2 * var(--lh) + 3px); }
+  /* LINES HELD sizes to the open water left under a tall dock strip, so it never rises over a name. */
+  .hold-stamp strong { font-size: max(44px, 10dvh); }
 }
 /* Short landscape screens (a 1024×500 projector): tighter chrome so eight rows keep their 40px ruler. */
 @media (orientation: landscape) and (min-width: 760px) and (min-height: 460px) and (max-height: 600px) {

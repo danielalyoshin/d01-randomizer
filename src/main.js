@@ -690,7 +690,6 @@ function finishRound() {
 function revealCut() {
   const held = heldCast(ledger);
   if (!held || phase !== 'idle' || $('dialog[open]')) return;
-  closeOptions();
   if (toastOffer) dismissToast();
   lastCatch = held.catches;
   ledger = landCast(ledger);
@@ -724,6 +723,9 @@ function togglePause() {
 // announced and sounded when the name lands. A replayed result, or reduced motion, opens finished.
 function showResults(previous = false) {
   if (!lastCatch || phase === 'fishing') return;
+  // However the reveal comes (the last fish landing, R, the lever or View last catch), Options
+  // folds away first, so its panel is never left open over the board behind the page.
+  closeOptions();
   resultIsPrevious = previous;
   const winner = smallestCatch(lastCatch);
   const largest = Math.max(...lastCatch.map(fish => fish.length));
@@ -809,38 +811,73 @@ new ResizeObserver(placeStamp).observe($('#catch-comparison'));
 
 // The landscape spread never scrolls. CSS sizes the verdict to the screen and its column; here it
 // also steps down until the verdict fits the height its row leaves it, and takes a step or two
-// more when that pulls a short last word ("CO") up onto the line above. In the haul, a name
-// takes a third line where every row has the height, two where it doesn't, and the haul
-// tightens to one when its rows can't each keep two. Portrait pages scroll, and keep the CSS sizes.
+// more when that pulls a short last word ("CO") up onto the line above. In the haul, names take
+// three lines where every row has the height and two where it doesn't, at the title size, or at
+// the UI size when that is what keeps every name whole. When the rows can't each keep two lines,
+// the haul tightens to one. Portrait pages scroll, and keep the CSS sizes. On every page, no word
+// of the verdict breaks across two lines.
 const SPREAD = matchMedia('(orientation: landscape) and (min-width: 760px) and (min-height: 460px)');
+const HAUL_FITS = [{ lines: 3 }, { lines: 2 }, { lines: 3, compact: true }, { lines: 2, compact: true }];
+// How many words of a name have been broken across two lines, which overflow-wrap does to a
+// word wider than its line. A compound breaks after its hyphen, as it should ("OFF-BY-ONE").
+function brokenWords(el) {
+  const text = el.firstChild, range = document.createRange();
+  if (!(text instanceof Text)) return 0;
+  return [...text.data.matchAll(/[^\s\-\u2010]+/g)].filter(({ 0: word, index }) => {
+    range.setStart(text, index);
+    range.setEnd(text, index + word.length);
+    return new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size > 1;
+  }).length;
+}
 function fitSpread() {
   const dialog = $('#results-dialog'), haul = $('#catch-comparison'), h2 = dialog.querySelector('.result-heading h2');
   if (!dialog.open || !h2) return;
   h2.style.fontSize = '';
-  haul.classList.remove('is-tight');
-  haul.style.removeProperty('--name-lines');
+  const setHaul = ({ lines, compact = false } = {}) => {
+    haul.classList.remove('is-tight');
+    haul.classList.toggle('is-compact', compact);
+    if (lines) haul.style.setProperty('--name-lines', lines); else haul.style.removeProperty('--name-lines');
+  };
+  setHaul();
+  let size = parseFloat(getComputedStyle(h2).fontSize);
+  const set = (px) => { h2.style.fontSize = `${px}px`; };
+  // The verdict is measured flat, since the tilt would skew its lines.
+  const flat = (measure) => { h2.style.rotate = '0deg'; const value = measure(); h2.style.rotate = ''; return value; };
+  const stage = dialog.querySelector('.winner-stage');
   if (SPREAD.matches) {
     const overflows = () => haul.scrollHeight > haul.clientHeight + 1;
-    haul.style.setProperty('--name-lines', '3');
-    if (overflows()) {
-      haul.style.removeProperty('--name-lines');
-      haul.classList.toggle('is-tight', overflows());
+    // How many names are cut short or break a word: each is measured clamped, then whole.
+    const cuts = () => {
+      const names = [...haul.querySelectorAll('.catch-group > span:nth-child(2)')];
+      const shown = names.map(name => name.offsetHeight);
+      haul.classList.add('is-measuring');
+      const cut = names.filter((name, i) => name.offsetHeight > shown[i] + 2 || brokenWords(name)).length;
+      haul.classList.remove('is-measuring');
+      return cut;
+    };
+    // The first way that fits and keeps every name whole; failing that, the one that cuts fewest.
+    const fits = HAUL_FITS.filter(fit => { setHaul(fit); return !overflows(); })
+      .map(fit => { setHaul(fit); return { fit, cut: cuts() }; });
+    const best = fits.find(({ cut }) => !cut) || fits.reduce((best, next) => next.cut < best.cut ? next : best, fits[0]);
+    if (best) setHaul(best.fit);
+    else {
+      setHaul();
+      haul.classList.add('is-tight');
     }
-    const stage = dialog.querySelector('.winner-stage');
     const room = parseFloat(getComputedStyle(dialog).gridTemplateRows.split(' ')[1]);
-    let size = parseFloat(getComputedStyle(h2).fontSize);
-    const set = (px) => { h2.style.fontSize = `${px}px`; };
     while (size > 44 && stage.offsetHeight > room) set(size = Math.max(44, size * 0.95));
-    // The name's lines, measured flat (the tilt would skew them).
-    const lines = () => {
-      h2.style.rotate = '0deg';
+  }
+  // The face widens as it shrinks (its optical size), so the width CSS planned from a 100px
+  // measure can run short: step down until the longest word fits whole.
+  while (size > 44 && flat(() => brokenWords(h2))) set(size = Math.max(44, size * 0.95));
+  if (SPREAD.matches) {
+    const lines = () => flat(() => {
       const range = document.createRange();
       range.selectNodeContents(h2);
       const rows = new Map();
       for (const rect of range.getClientRects()) rows.set(Math.round(rect.top), Math.max(rows.get(Math.round(rect.top)) || 0, rect.width));
-      h2.style.rotate = '';
       return [...rows.values()];
-    };
+    });
     const widths = lines();
     if (widths.length > 1 && widths.at(-1) < Math.max(...widths) * 0.4) {
       for (let px = size * 0.96; px >= Math.max(44, size * 0.82); px *= 0.96) {
@@ -871,9 +908,9 @@ $('#mark-presented').addEventListener('click', markPresented);
 $('#cast-button').addEventListener('click', startRound);
 $('#pause-button').addEventListener('click', togglePause);
 $('#skip-button').addEventListener('click', finishRound);
-// Fold Options first, so the panel isn't left over the board behind the dialog, and so
-// closing the dialog hands focus back to the Options tag when that's where it came from.
-$('#last-catch-button').addEventListener('click', () => { closeOptions(); if (heldCast(ledger)) revealCut(); else showResults(true); });
+// The results fold Options away first (see showResults), so closing them hands focus back to
+// the Options tag when that's where it came from.
+$('#last-catch-button').addEventListener('click', () => { if (heldCast(ledger)) revealCut(); else showResults(true); });
 // How to play opens from the ? plate beside Options, the ? key, or the dock note.
 function openHelp() {
   if ($('dialog[open]')) return;
@@ -1007,7 +1044,6 @@ document.addEventListener('keydown', (event) => {
     openHelp();
   } else if (key === 'l' && phase === 'idle' && (lastCatch || heldCast(ledger))) {
     event.preventDefault();
-    closeOptions();
     if (heldCast(ledger)) revealCut(); else showResults(true);
   }
 });

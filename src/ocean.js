@@ -19,6 +19,9 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 // The haul home is presentation only: once every hook has a fish, whatever is still on a line
 // is reeled in this much faster. A catch's opening struggle always keeps its own pace.
 const STRUGGLE = 0.6, HAUL_RUSH = 2.5;
+// The room watches a round for 20s at most: the last bite plays by WATCH seconds, and the haul
+// home and the dock hold take the rest (about 3s). Playback only: fishing.js fixes every catch.
+const WATCH = 16.5;
 // Landed catches hang from hoisted rods for this long before the reveal; a rod takes HOIST to lift.
 const DOCK_HOLD = 0.9, HOIST = 0.35;
 // A hooked fish is printed this much larger so the back row can read it, and settles to the
@@ -117,7 +120,9 @@ export class Ocean {
 
   start(round) {
     this.simulation = round.simulation;
-    this.playbackRate = round.playbackRate;
+    // The simulation is replayed exactly; only how fast it plays changes.
+    const lastBite = Math.max(...round.catches.map(fish => fish.catchAt));
+    this.playbackRate = Math.max(round.playbackRate, lastBite / WATCH);
     this.accumulator = 0;
     this.particles = [];
     this.bursts = [];
