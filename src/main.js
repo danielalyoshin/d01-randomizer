@@ -115,17 +115,16 @@ $('#app').innerHTML = `
       </div>
       <div class="boat-scroll-hint"><span>←</span> Scroll to see every boat <span>→</span></div>
       <div class="game-controls">
-        <div class="control-message"><strong id="control-title">Smallest fish presents next.</strong><span id="control-subtitle">8 boats ready to cast.</span></div>
+        <div class="control-message"><strong id="control-title">Smallest fish presents next.</strong><span id="control-subtitle">8 boats ready to cast.</span><div class="toast" id="toast"><span id="toast-message" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="plate-button toast-undo" id="toast-undo" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Z' : 'Control+Z'}" hidden><span class="label">Undo</span></button><button type="button" class="plate-button toast-undo" id="toast-offer" aria-keyshortcuts="R" hidden><span class="label"></span></button></div></div>
         <div class="cast-actions" id="cast-actions"><button class="lever" id="cast-button" aria-keyshortcuts="Space">${bolt()}<span class="label">Cast the lines</span>${icon('arrow', 26)}</button></div>
         <div class="fishing-actions" id="fishing-actions" hidden><button class="icon-button pause-button" id="pause-button" aria-label="Pause fishing" aria-keyshortcuts="Space">${icon('pause', 24)}</button><button class="plate-button skip-button" id="skip-button" aria-keyshortcuts="R">${bolt()}<span class="label">Reveal catch</span>${icon('skip', 20)}</button></div>
       </div>
     </section>
   </main>
 
-  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. In Options, rename, add or remove boats (2–12), or paste your whole list at once.</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation. Every cast is written into today’s catch at the dock, even one thrown back or cut short.</li></ol><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round, or one a reload cut short.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>L</kbd></dt><dd>Open the last catch at the dock.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat, a list or a mark.</dd></div><div><dt><kbd>?</kbd></dt><dd>Open this guide from the board.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page, a list or Options.</dd></div></dl></section><p class="help-footnote">Boat names, who has presented and today’s catch are saved in this browser, until Reset presented. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
+  <dialog id="help-dialog" class="help-dialog" aria-label="How to play"><button class="dialog-close icon-button" data-close="help-dialog" aria-label="Close instructions">${icon('close', 22)}</button><div class="help-lead"><p class="eyebrow">A quick field guide</p><h2>Hook, line <span>&amp; presenter.</span></h2><ol><li><strong>Get your boats ready.</strong> Each group fishes from its own numbered boat. In Options, rename, add or remove boats (2–12), or paste your whole list at once.</li><li><strong>Check off past presenters.</strong> Click a boat’s name tag to mark it presented, or tick it in Options. It stays moored at the dock.</li><li><strong>Cast the lines.</strong> Fish dart through the current while hooks descend at different depths. Any boat can hook any passing fish. Watch them put up a fight!</li><li><strong>Compare the catch.</strong> Smallest fish presents next. Mark that boat presented, then cast again for the next presentation. Every cast is written into today’s catch at the dock, even one thrown back or cut short.</li></ol></div><div class="help-more"><div class="fairness-note">${icon('fish', 30)}<p><strong>A fair catch, every time.</strong> Every fish gets a random, unique length before the cast. Hooks catch on contact, regardless of fish size or markings. Every boat in the round has an equal chance of the smallest catch. Reveal catch finishes the same round instantly.</p></div><section class="help-keys" aria-labelledby="keys-title"><h3 id="keys-title">Skipper’s keys</h3><dl><div><dt><kbd>Space</kbd></dt><dd>Cast, pause or resume, from anywhere but a name field.</dd></div><div><dt><kbd>R</kbd></dt><dd>Reveal the catch mid-round, or one a reload cut short.</dd></div><div><dt><kbd>Enter</kbd></dt><dd>Mark the winner presented from the results. Ticks a focused box.</dd></div><div><dt><kbd>L</kbd></dt><dd>Open the last catch at the dock.</dd></div><div><dt><kbd>${MOD_KEY}</kbd><kbd>Z</kbd></dt><dd>Undo a reset, a removed boat, a list or a mark.</dd></div><div><dt><kbd>?</kbd></dt><dd>Open this guide from the board.</dd></div><div><dt><kbd>Esc</kbd></dt><dd>Close a page, a list or Options.</dd></div></dl></section><p class="help-footnote">Boat names, who has presented and today’s catch are saved in this browser, until Reset presented. Sound is optional. With reduced motion, the catch is revealed at once.</p><button class="lever full-width" data-close="help-dialog">${bolt()}<span class="label">Let's go fishing</span>${icon('arrow', 24)}</button></div><p class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
 
   <dialog id="results-dialog" class="results-dialog" aria-label="Catch comparison and next presenter" tabindex="-1"><button class="dialog-close icon-button" data-close="results-dialog" aria-label="Close" title="Close">${icon('close', 22)}</button><div class="result-heading" id="result-heading"></div><div class="catch-comparison" id="catch-comparison" role="table" aria-label="Every catch, in boat order"></div><div class="results-actions"><button class="lever" id="mark-presented" aria-keyshortcuts="Enter">${bolt()}<span class="label">Mark presented & return</span>${icon('check', 22)}</button><button class="plate-button" id="results-back" data-close="results-dialog">${bolt()}<span class="label">Back to the boats</span>${icon('arrow', 20)}</button></div><p class="results-footnote">One presenter per round. A fresh catch next time.</p><p class="sr-only" id="results-status" role="status" aria-live="polite" aria-atomic="true"></p></dialog>
-  <div class="toast" id="toast"><span id="toast-message" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="plate-button toast-undo" id="toast-undo" aria-keyshortcuts="${MOD_KEY === '⌘' ? 'Meta+Z' : 'Control+Z'}" hidden><span class="label">Undo</span></button><button type="button" class="plate-button toast-undo" id="toast-offer" aria-keyshortcuts="R" hidden><span class="label"></span></button></div>
   <span class="sr-only" id="live-status" role="status" aria-live="polite" aria-atomic="true"></span>
 `;
 
@@ -231,8 +230,20 @@ const sceneObserver = new ResizeObserver(() => {
 });
 sceneObserver.observe($('#ocean-viewport'));
 sceneObserver.observe($('#ocean-world'));
-// The dock drops just far enough for the tallest name tag (see Ocean.setDock).
-new ResizeObserver(() => { ocean.setDock($('#boat-labels').offsetTop + $('#boat-labels').offsetHeight); fitLedger(); }).observe($('#boat-labels'));
+// The dock drops just far enough for the tallest name tag (see Ocean.setDock), and a paused
+// round's LINES HELD stamp lands below the tags (see style.css).
+new ResizeObserver(() => {
+  const dock = $('#boat-labels').offsetTop + $('#boat-labels').offsetHeight;
+  $('.game-card').style.setProperty('--dock', `${dock}px`);
+  ocean.setDock(dock);
+  fitLedger();
+}).observe($('#boat-labels'));
+// A panel longer than its corner scrolls, and its foot prints a rule while there's more (see style.css).
+function markPanelScroll() {
+  const panel = $('#options-panel');
+  panel.classList.toggle('is-scrolling', panel.scrollHeight > panel.clientHeight + 1);
+}
+new ResizeObserver(markPanelScroll).observe($('#options-panel'));
 
 function renderCrew() {
   const fishing = phase === 'fishing';
@@ -263,6 +274,7 @@ function renderCrew() {
   }
   ocean.setGroups(groups);
   renderLedger();
+  markPanelScroll();
 }
 
 // Today's catch, printed on the slip at the dock. Cast numbers are plain figures, so they never
@@ -329,7 +341,9 @@ function renderLedger() {
 
 // The slip keeps under the hooks hanging at the dock and beside the depth gauge (above it on a
 // phone). Its lines flow into as many newspaper columns as it takes; when even those can't hold
-// them, the oldest casts fold into one line that still counts what they were. It never scrolls.
+// them, the oldest casts fold into one line that still counts what they were. The latest cast is
+// never folded: it's the one the room is waiting on. On a screen too short to hold even that
+// under the hooks, the slip prints its shortest arrangement and rises over them. It never scrolls.
 const LEDGER_COL = { min: 290, max: 360, gap: 18 };
 function fitLedger() {
   const slip = $('#ledger'), list = $('#ledger-lines');
@@ -340,38 +354,55 @@ function fitLedger() {
   const frame = slip.offsetWidth - list.clientWidth;
   const margin = phone ? 0 : parseFloat(getComputedStyle(slip).marginRight);
   const room = { width: area.width - margin - (phone ? 0 : gauge.offsetWidth + 14) - frame,
-    height: Math.max(130, area.bottom - $('#ocean').getBoundingClientRect().top - ocean.openWater - (phone ? gauge.offsetHeight + 10 : 0)) };
+    height: area.bottom - $('#ocean').getBoundingClientRect().top - ocean.openWater - (phone ? gauge.offsetHeight + 10 : 0) };
   const most = Math.max(1, Math.floor((room.width + LEDGER_COL.gap) / (LEDGER_COL.min + LEDGER_COL.gap)));
   const casts = ledgerPrint.filter(line => line.kind === 'cast').length;
-  // Folding a single cast would save nothing, so folds start at two.
   // Lines are measured in a hidden column beside the slip's own, so the printed lines are only
   // rewritten when what they say or where they fall changes.
   const probe = $('#ledger-probe');
   const limit = room.height - (slip.offsetHeight - list.offsetHeight);
-  for (let fold = 0; fold <= casts; fold = fold ? fold + 1 : 2) {
+  // Columns stand on their own, like a newspaper's: a stamped line never stretches its neighbour.
+  const setColumns = (cols) => slip.style.setProperty('--col', `${Math.min(LEDGER_COL.max, Math.floor((room.width - (cols - 1) * LEDGER_COL.gap) / cols))}px`);
+  const print = (columns, cols) => {
+    setColumns(cols);
+    const html = columns.map(column => `<div class="ledger-column">${column.join('')}</div>`).join('');
+    if (html !== ledgerHtml) { list.innerHTML = html; ledgerHtml = html; }
+    probe.innerHTML = '';
+  };
+  // Down one column, then on into the next, under `height`. A day rule never ends a column: it
+  // goes over with the line it heads.
+  const pack = (lines, sizes, height) => {
+    const columns = [[]];
+    let filled = 0, tallest = 0;
+    sizes.forEach((size, i) => {
+      if (filled + size.needs > height && columns.at(-1).length) { columns.push([]); filled = 0; }
+      columns.at(-1).push(lines[i]);
+      filled += size.height;
+      tallest = Math.max(tallest, filled);
+    });
+    return { columns, tallest };
+  };
+  // Folding a single cast would save nothing, so folds start at two, and stop short of the latest.
+  const last = casts > 2 ? casts - 1 : 0;
+  let shortest = null;
+  for (let fold = 0; fold <= last; fold = fold ? fold + 1 : 2) {
     const lines = foldLines(ledgerPrint, fold).map(ledgerLine);
     probe.innerHTML = lines.join('');
     for (let cols = 1; cols <= Math.min(most, lines.length); cols++) {
-      // Columns stand on their own, like a newspaper's: a stamped line never stretches its neighbour.
-      slip.style.setProperty('--col', `${Math.min(LEDGER_COL.max, Math.floor((room.width - (cols - 1) * LEDGER_COL.gap) / cols))}px`);
+      setColumns(cols);
       const heights = [...probe.children].map(line => line.offsetHeight);
-      const columns = [[]];
-      let filled = 0;
-      heights.forEach((height, i) => {
-        // A day rule never ends a column: it goes over with the line it heads.
-        const needs = probe.children[i].matches('.ledger-day') ? height + (heights[i + 1] || 0) : height;
-        if (filled + needs > limit && columns.at(-1).length) { columns.push([]); filled = 0; }
-        columns.at(-1).push(lines[i]);
-        filled += height;
-      });
-      if (columns.length > cols || filled > limit) continue;
-      const html = columns.map(column => `<div class="ledger-column">${column.join('')}</div>`).join('');
-      if (html !== ledgerHtml) { list.innerHTML = html; ledgerHtml = html; }
-      probe.innerHTML = '';
-      return;
+      const sizes = heights.map((height, i) => ({ height, needs: probe.children[i].matches('.ledger-day') ? height + (heights[i + 1] || 0) : height }));
+      const fit = pack(lines, sizes, limit);
+      if (fit.columns.length <= cols && fit.tallest <= limit) { print(fit.columns, cols); return; }
+      if (fold !== last) continue;
+      // Nothing fits under the hooks: keep the shortest way to print the tightest fold.
+      let height = Math.max(limit, ...sizes.map(size => size.needs)), squeezed;
+      while ((squeezed = pack(lines, sizes, height)).columns.length > cols) height += 4;
+      if (!shortest || squeezed.tallest < shortest.tallest) shortest = { ...squeezed, cols };
     }
   }
-  probe.innerHTML = '';
+  if (shortest) print(shortest.columns, shortest.cols);
+  else probe.innerHTML = '';
 }
 
 $('#crew-list').addEventListener('change', (event) => {
@@ -505,6 +536,7 @@ function renderList() {
   area.setAttribute('aria-invalid', String(error));
   area.disabled = phase === 'fishing';
   $('#list-apply').disabled = phase === 'fishing' || !list.ok;
+  markPanelScroll();
   return list;
 }
 
@@ -713,7 +745,7 @@ function showResults(previous = false) {
   verdictIn = !staged;
   pendingVerdict = null;
   dialog.showModal();
-  placeStamp();
+  fitSpread();
   const line = `${previous ? 'Last round: ' : ''}Boat ${rowNumber(winner.id, lastCatch.indexOf(winner))}, ${winner.name}, presents next with the smallest fish at ${formatLength(winner.length)} centimetres.`;
   // The verdict is spoken just after focus lands on Mark presented, so announcing the
   // focused button never cuts the verdict short.
@@ -774,6 +806,54 @@ function placeStamp() {
   stamp.style.left = `${left}px`;
 }
 new ResizeObserver(placeStamp).observe($('#catch-comparison'));
+
+// The landscape spread never scrolls. CSS sizes the verdict to the screen and its column; here it
+// also steps down until the verdict fits the height its row leaves it, and takes a step or two
+// more when that pulls a short last word ("CO") up onto the line above. In the haul, a name
+// takes a third line where every row has the height, two where it doesn't, and the haul
+// tightens to one when its rows can't each keep two. Portrait pages scroll, and keep the CSS sizes.
+const SPREAD = matchMedia('(orientation: landscape) and (min-width: 760px) and (min-height: 460px)');
+function fitSpread() {
+  const dialog = $('#results-dialog'), haul = $('#catch-comparison'), h2 = dialog.querySelector('.result-heading h2');
+  if (!dialog.open || !h2) return;
+  h2.style.fontSize = '';
+  haul.classList.remove('is-tight');
+  haul.style.removeProperty('--name-lines');
+  if (SPREAD.matches) {
+    const overflows = () => haul.scrollHeight > haul.clientHeight + 1;
+    haul.style.setProperty('--name-lines', '3');
+    if (overflows()) {
+      haul.style.removeProperty('--name-lines');
+      haul.classList.toggle('is-tight', overflows());
+    }
+    const stage = dialog.querySelector('.winner-stage');
+    const room = parseFloat(getComputedStyle(dialog).gridTemplateRows.split(' ')[1]);
+    let size = parseFloat(getComputedStyle(h2).fontSize);
+    const set = (px) => { h2.style.fontSize = `${px}px`; };
+    while (size > 44 && stage.offsetHeight > room) set(size = Math.max(44, size * 0.95));
+    // The name's lines, measured flat (the tilt would skew them).
+    const lines = () => {
+      h2.style.rotate = '0deg';
+      const range = document.createRange();
+      range.selectNodeContents(h2);
+      const rows = new Map();
+      for (const rect of range.getClientRects()) rows.set(Math.round(rect.top), Math.max(rows.get(Math.round(rect.top)) || 0, rect.width));
+      h2.style.rotate = '';
+      return [...rows.values()];
+    };
+    const widths = lines();
+    if (widths.length > 1 && widths.at(-1) < Math.max(...widths) * 0.4) {
+      for (let px = size * 0.96; px >= Math.max(44, size * 0.82); px *= 0.96) {
+        set(px);
+        if (lines().length < widths.length) { size = px; break; }
+      }
+      set(size);
+    }
+  }
+  placeStamp();
+}
+new ResizeObserver(fitSpread).observe($('#results-dialog'));
+document.fonts?.ready.then(fitSpread);
 
 function markPresented() {
   if (!lastCatch || !verdictIn || $('#mark-presented').disabled) return;
