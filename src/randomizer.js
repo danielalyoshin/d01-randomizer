@@ -4,6 +4,10 @@ export const MIN_GROUPS = 2;
 export const MAX_GROUPS = 12;
 export const COLORS = ['#e88a58', '#e7bd58', '#8baa8c', '#789eae', '#b68fa5', '#ce715f', '#a4b56c', '#8f94bd', '#b58a5a', '#73b8ad', '#d69bb0', '#b7a56b'];
 export const STORAGE_KEY = 'daily-catch-v1';
+// Fish lengths in millimetres. The board prints every fish to scale, so the school spans a
+// 4× range that reads from the back row: a 15 cm fish beside a 60 cm one is plainly small.
+// Catches saved when the school ran 14.0–96.0 cm still load (see restoreState and ledger.js).
+export const MIN_LENGTH = 150, MAX_LENGTH = 600;
 
 // Rejection sampling avoids the modulo bias of randomUint32 % max.
 export function randomInt(max, randomValues = (array) => crypto.getRandomValues(array)) {
@@ -23,6 +27,29 @@ export function shuffle(items, random = randomInt) {
   return result;
 }
 
+// Small fish are common and big ones rare: each length is weighted in inverse proportion to itself,
+// so lengths spread evenly in ratio rather than in centimetres. A 15 cm fish is four times as common
+// as a 60 cm one, and on the board, where every fish is printed to scale, each step up in size looks
+// as big as the last.
+const LENGTH_WEIGHTS = Array.from({ length: MAX_LENGTH - MIN_LENGTH + 1 }, (_, i) => Math.round(2 ** 20 / (MIN_LENGTH + i)));
+
+// Unique weighted lengths, drawn without replacement. Draws like these lean, very slightly, toward
+// taking small fish first, so the school is shuffled afterwards: a fish's place in it, and so its
+// depth, never depends on its length.
+export function drawLengths(count, random = randomInt) {
+  const weights = [...LENGTH_WEIGHTS];
+  let total = weights.reduce((sum, weight) => sum + weight, 0);
+  const lengths = [];
+  while (lengths.length < count) {
+    let pick = random(total), i = 0;
+    while (pick >= weights[i]) pick -= weights[i++];
+    lengths.push(MIN_LENGTH + i);
+    total -= weights[i];
+    weights[i] = 0;
+  }
+  return shuffle(lengths, random);
+}
+
 export function createExpedition(groups, random = randomInt, width = 1400) {
   if (!Array.isArray(groups) || groups.length < MIN_GROUPS || groups.length > MAX_GROUPS) {
     throw new RangeError(`Choose ${MIN_GROUPS}–${MAX_GROUPS} groups`);
@@ -32,7 +59,7 @@ export function createExpedition(groups, random = randomInt, width = 1400) {
   // Every roaming fish has a unique length before any hook is cast. Length is
   // shuffled independently of movement; contact geometry never uses fish size.
   const schoolSize = Math.min(36, Math.max(20, activeGroups.length * 2 + 6, Math.ceil(width / 50)));
-  const lengths = shuffle(Array.from({ length: 821 }, (_, i) => i + 140), random).slice(0, schoolSize);
+  const lengths = drawLengths(schoolSize, random);
   return createFishingRound(groups, lengths, random, width);
 }
 

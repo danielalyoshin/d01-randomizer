@@ -1,4 +1,5 @@
 import { STEP, hookPosition, swimmerPosition } from './fishing.js';
+import { MIN_LENGTH, MAX_LENGTH } from './randomizer.js';
 import { fishStyle, drawFish } from './fish-art.js';
 
 const TAU = Math.PI * 2;
@@ -24,6 +25,9 @@ const STRUGGLE = 0.6, HAUL_RUSH = 2.5;
 const WATCH = 16.5;
 // Landed catches hang from hoisted rods for this long before the reveal; a rod takes HOIST to lift.
 const DOCK_HOLD = 0.9, HOIST = 0.35;
+// Every fish is printed to scale, its size in proportion to its length, so the room sees a big
+// or small catch as it happens: 15 cm swims about 22px long, tail to mouth, and 60 cm about 90px.
+const SIZE_PER_MM = 0.094;
 // A hooked fish is printed this much larger so the back row can read it, and settles to the
 // dock scale as it comes aboard. Every catch scales alike, so relative size stays true.
 const HOOKED_SCALE = 2, LANDED_SCALE = 1.25, POP = 0.28;
@@ -66,7 +70,7 @@ export class Ocean {
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     this.school = Array.from({ length: 22 }, (_, i) => ({
       x: Math.random(), y: 325 + (i + Math.random()) / 22 * 640,
-      size: 15 + Math.random() * 22, speed: 65 + Math.random() * 95,
+      size: MIN_LENGTH * (MAX_LENGTH / MIN_LENGTH) ** Math.random() * SIZE_PER_MM, speed: 65 + Math.random() * 95,
       direction: i % 2 ? 1 : -1, phase: Math.random() * TAU, style: i % 6,
     }));
     this.observer = new ResizeObserver(() => this.resize());
@@ -165,7 +169,7 @@ export class Ocean {
   boatY() { return KEEL - 17 * this.boatScale(); }
   // Where a hooked fish is reeled to, beside the hull.
   reelY() { return this.boatY() - 23 * this.boatScale(); }
-  fishSize(fish) { return 16 + (fish.length - 140) / 820 * 25; }
+  fishSize(fish) { return fish.length * SIZE_PER_MM; }
   screenX(x) { return x * this.width / this.simulation.width; }
 
   update(dt) {

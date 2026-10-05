@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createExpedition, smallestCatch, randomInt, shuffle, restoreState, defaultGroups } from '../src/randomizer.js';
+import { MIN_LENGTH, MAX_LENGTH, createExpedition, drawLengths, smallestCatch, randomInt, shuffle, restoreState, defaultGroups } from '../src/randomizer.js';
 
 test('each supported crew produces unique fish and exactly one result per group', () => {
   for (let count = 2; count <= 12; count++) {
@@ -10,10 +10,29 @@ test('each supported crew produces unique fish and exactly one result per group'
       assert.equal(catches.length, count);
       assert.equal(new Set(catches.map(item => item.length)).size, count);
       assert.deepEqual(catches.map(item => item.id), groups.map(group => group.id));
-      assert.ok(catches.every(item => item.length >= 140 && item.length <= 960 && item.catchAt > 1.6));
+      assert.ok(catches.every(item => item.length >= MIN_LENGTH && item.length <= MAX_LENGTH && item.catchAt > 1.6));
       assert.equal(smallestCatch(catches).length, Math.min(...catches.map(item => item.length)));
     }
   }
+});
+
+test('small fish are common and big ones rare, with lengths spread evenly in ratio', () => {
+  const schools = Array.from({ length: 4000 }, () => drawLengths(22));
+  assert.ok(schools.every(school => new Set(school).size === 22 && school.every(length => Number.isInteger(length) && length >= MIN_LENGTH && length <= MAX_LENGTH)));
+  // Half of all fish are under twice the shortest length (30 cm); about a fifth run past 45 cm.
+  const lengths = schools.flat(), share = (test) => lengths.filter(test).length / lengths.length;
+  assert.ok(Math.abs(share(length => length < 300) - 0.5) < 0.03);
+  assert.ok(Math.abs(share(length => length > 450) - 0.207) < 0.025);
+});
+
+test('a fish’s place in the school, and so its depth, never depends on its length', () => {
+  // The smallest fish is equally likely to start anywhere in the school, never sorted to one end.
+  const places = Array(22).fill(0);
+  for (let run = 0; run < 22000; run++) {
+    const school = drawLengths(22);
+    places[school.indexOf(Math.min(...school))]++;
+  }
+  assert.ok(places.every(count => count > 850 && count < 1150), places.join(' '));
 });
 
 test('presented groups never take part, including when only one group remains', () => {
